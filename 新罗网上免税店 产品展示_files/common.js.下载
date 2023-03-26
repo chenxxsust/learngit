@@ -1,0 +1,4561 @@
+$(function(){
+	/* device division */
+	var diviceUserAgentArry = [
+		{ name : "huaweimt", className : "Huawei-MT" }, // huawei mate series
+		{ name : "iphone", className : "iPhone" }, // iphone series
+		{ name : "ipad", className : "iPhone" }
+	];
+
+	$.each(diviceUserAgentArry, function(idx, val){
+		if( navigator.userAgent.toLowerCase().indexOf(val.name) > -1 ){
+			$("body").addClass(val.className);
+		}
+	});
+
+	/* ios keypad bug fixed */
+	if( $(".product_detail").length ){
+		$("body").addClass('productDetail');
+	}
+
+	if( $("body").hasClass("mobileApp") && $("body").hasClass("iPhone") ){
+		$(document).on('focusin', 'input, textarea', function(){
+			$(".inner.fixed").addClass("noAnimate")
+			$("body").addClass('unfixed');
+		})
+		.on('focusout', 'input, textarea', function(){
+			$(".inner.fixed").removeClass("noAnimate");
+			$("body").removeClass('unfixed');
+		});
+	}
+
+	var hidePattern = /\/(p|b\/chanel|cart|checkout|signup|login|category|recentlyviewed)\b/;
+	if(!hidePattern.test(location.pathname)) {
+		$('footer .footer_nav .go_floating').show();
+		if (isApp && shillaTalkPopupAppVer =="true" && isLogin == 'true') {
+			$.ajax({
+				url: option.shillaChatWebServer,
+				dataType : "jsonp",
+				jsonp : "cb",
+				data	:  {
+					cmd : '{"command":"TalkBadge","domainAlias":"shilladfsCN","customerId":\"' + option.customerUid + '\"}'
+				},
+		    	error: function(){
+		    		$('#talkImg').hide();
+					console.log("상담톡 서버와의 통신에 장애가 발생하였습니다.");
+		    	},
+		    	success: function(data) {
+		    		console.log('data : ' + data);
+
+		    		if(data == null || data == "") {
+		    			//$('#talkImg').hide();
+		    		} else {
+			    		if(data.errorCode == 0) {
+			    			if(data.data.inProgressTalkCount != 0) {
+			    				talkNewMsg();
+			    			}
+			    		}
+		    		}
+		    	}
+			});
+		} else {
+			$('#talkImg').show();
+			$('#talk').removeClass("on");
+			if(isLogin == 'true') {
+				shillaChatTalkNew();
+			}
+		}
+	}
+
+	// 풀다운메뉴
+	$(".btnFullMenu").click( function () {
+		if ( $(".showMn").css("display") == 'block' ) {
+			$(".showMn").fadeOut();
+
+			// 2021-09-15 : EC 글로벌몰 서비스 이동팝업
+			// $(".btnFullMenu").css("background-image","url("+commonResourcePath+"/shilladfshome/cn/img/common/btnFullDown.png)");
+			$(".btnFullMenu").removeClass('active');
+
+			$(".dimmed").removeClass("on");
+			$("body").css("overflow","auto");
+			$("#container").unbind('touchmove');
+		}
+		else {
+			$(".showMn").show();
+
+			// 2021-09-15 : EC 글로벌몰 서비스 이동팝업
+			// $(".btnFullMenu").css("background-image","url("+commonResourcePath+"/shilladfshome/cn/img/common/btnFullUp.png)");
+			$(".btnFullMenu").addClass('active');
+
+			$(".dimmed").addClass("on");
+			$("body").css("overflow","hidden");
+			$("#container").bind('touchmove', function(e){e.preventDefault()});
+		}
+	});
+	$(".dimmed").click(function(){
+		$(".showMn").hide();
+
+		// 2021-09-15 : EC 글로벌몰 서비스 이동팝업
+		// $(".btnFullMenu").css("background-image","url("+commonResourcePath+"/shilladfshome/cn/img/common/btnFullDown.png)");
+		$(".btnFullMenu").removeClass('active');
+
+		// 2017.08.17 Search UIUX Improvement START 검색 UI 개선 : 리앙
+		if($("#newSearchFilter").hasClass("on")){
+			mobile_grid_close_call();  // 2017.08.10 Search UIUX Improvement off
+			$("#newSearchFilter").removeClass("on");
+			$(".search_wrap .search_head .count .btn .ico.ic_toggle").removeClass("on");
+		}
+		// 2017.08.17 Search UIUX Improvement END 검색 UI 개선 : 리앙 - end
+	});
+
+	// 2018.04.03 상품상세 확대 기능 시작
+	if (zoomCommon.beforeInit() > 0) {
+		zoomCommon.addScript();
+	};
+});
+
+/* loading value */
+var windowComplete = false;
+var mask 			= ".dimmed";
+var nav 			= false;
+var headerMainCheck = true;
+var winScrollTop, allCheckLinkage;
+
+/* layer popup */
+var windowScrollTopPosition, windowScrollFuncPrevent;
+
+function bodyScrollStop(){
+	windowScrollFuncPrevent = true;
+	windowScrollTopPosition = $(window).scrollTop();
+	$("body").css({ "overflow" : "hidden" , "position" : "fixed" });
+}
+
+function bodyScrollStart(){
+	$("body").css({ "overflow" : "auto" , "position" : "static" });
+	$(window).scrollTop(windowScrollTopPosition);
+	windowScrollFuncPrevent = false;
+}
+
+function popClose (_this, event){
+	/* 2019-10-21 항공편 팝업 확인 버튼 미작동 건 수정 - 픽스다인 */
+	if(_this.selector == "#layer-orderabletime" && $('#layer-searchflight:visible').length > 0) {
+
+	} else {
+		_this.removeAttr("style").hide().find(".pop_content").removeAttr("style");
+	}
+
+	if ( $(".popup_layer_wrap:visible").length ){
+		var popZindex = $(".popup_layer_wrap:visible").css("zIndex");
+		$(mask).css({ "z-index" : popZindex - 1 });
+	} else {
+		$(mask).removeClass("on").css({ "z-index" : 100 });
+		if (isHideMobileWebTopGnb && osName == "android"){
+			var appurl = 'shilladfs://setLayerPopup?{"status":"Y"}';
+			window.location.href = appurl;
+		}
+	}
+
+	bodyScrollStart();
+}
+
+//UI/UX 개선과제 - 개인화 영역 Sns 레이버 팝업 추가
+function popSnsClose (_this){
+	_this.removeAttr("style").hide()
+	.find(".pop_content").removeAttr("style");
+	if ( $(".popup_layer_wrap:visible").length ){
+		var popZindex = $(".popup_layer_wrap:visible").css("zIndex");
+		$(mask).css({ "z-index" : popZindex - 1 });
+	} else {
+		$(mask).removeClass("on").css({ "z-index" : 100 });
+		if (isApp && isAppSnsLayerPopup && navigator.userAgent.match(/iPhone|iPad|iPod/i)) {
+			var appurl = 'shilladfscn://hideFilterLayout';
+			window.location.href = appurl;
+		} else if (isApp && isAppSnsLayerPopup && navigator.userAgent.match(/ndroid/i)) {
+			var appurl = 'shilladfscn://hideFilterLayout';
+			window.location.href = appurl;
+		}
+	}
+
+	bodyScrollStart();
+}
+
+function popOpen (_this){
+	// alert("cn common.js popOpen called");
+	/* 2016-09-09 : 속도개선(팝업 커스텀 레이지 로드 적용) */
+	_this.find("img.customLazy").each(function(){
+		var thisSrc = $(this).attr("data-imgsrc");
+		$(this).attr("src",thisSrc).end().removeAttr("data-imgsrc");
+	});
+	/* 2016-09-09 : 속도개선(팝업 커스텀 레이지 로드 적용) - e */
+	_this.css("visibility" , "hidden").show();
+	popPos(_this);
+	$(mask).addClass("on").css({ "z-index" : _this.css("zIndex") - 1 });
+}
+
+function popPos(target){
+
+	var popContent  = target.find(".pop_content , .pop_compare");
+
+	target.removeAttr("style");
+	chkInlineStyle();
+	popContent.removeAttr("style");
+
+	var winH 		= $(window).height();
+	var winW 		= $(window).width();
+	var thisH 		= target.height();
+	var thisW 		= target.width();
+	var popHeaderH 	= target.find(".pop_header").outerHeight();
+	var popFooterH  = target.find(".pop_footer").size() > 0 ?  parseInt(target.find(".pop_footer").outerHeight()) : 0;
+	var exception	= target.hasClass("sitemap") ? true : false;
+
+	positionCtrl();
+	target.css("visibility" , "visible");
+
+//	아이폰앱 제품비교페이지에서 팝업 위치가 맞지 않고, 좌우로 움직여지는 버그때문에 resize액션 적용안함
+//	alert(target.attr("id"));
+	if ( osName == "ios" && (target.attr("id") == "layer-compareProducts" || target.attr("id") == "layer-orderCancel" || target.attr("id") == "layer-exchangeCoupon") ){
+		target.css({"overflow-x":"hidden","position":"fixed", "top":"0px", "height":target.height()-15});
+	}else{
+		$(window).resize(function(){
+			if( target.is(":visible") ){
+				target.removeAttr("style").css("visibility" , "visible");
+				chkInlineStyle();
+				popContent.removeAttr("style");
+
+				winH 		= $(window).height();
+				winW 		= $(window).width();
+				thisH 		= target.height();
+				thisW 		= target.width();
+
+				if (! target.find("iframe").length ){
+					positionCtrl();
+				}
+			}
+		});
+	}
+
+	function positionCtrl(){
+		winH = window.innerHeight;
+		if( thisH > winH || exception ){
+			target.css({
+				"top"	: 0,
+				"left"  : (winW-thisW)/2,
+				"height" : winH,
+				"overflow" : "hidden"
+			});
+			popContent.css({
+				"height" : winH - popHeaderH - popFooterH - parseInt(popContent.css("paddingTop")) - parseInt(popContent.css("paddingBottom")),
+				"overflow" : "auto"
+			});
+			bodyScrollStop();
+		} else {
+
+			winH = $(window).height();
+			if (winH > screen.height) {
+				winH = screen.height;
+			}
+
+			target.css({
+				"top" : parseInt((winH - target.height())/2),
+				"left"  : (winW-thisW)/2
+			});
+			bodyScrollStop();
+		}
+	}
+
+	// check inline data
+	function chkInlineStyle() {
+		if ( target.data('lwidth') ) target.css('width', target.data('lwidth'));
+		if ( target.data('lheight') ) target.css('height', target.data('lheight'));
+		if ( target.data('lzindex') ) target.css('z-index', target.data('lzindex'));
+	}
+
+	// keypad
+	popContent.find("textarea").on("focus", function() {
+		var fixedVal = $(this).offset().top;
+		if ( fixedVal < 335 ) return false;
+		bodyScrollStart();
+		bodyScrollStop();
+		popContent.scrollTop( fixedVal - 50 );
+	});
+}
+
+function popClick (_this){
+	var popName = $(_this).attr('id');
+	var popTarget = "layer-" + popName;
+	var targetLayer = $("#"+popTarget);
+
+	if( $(_this).hasClass("self-close") ){
+		$(_this).parents(".popup_layer_wrap").hide();
+		$(".dimmed").removeClass("on");
+	}
+	popOpen(targetLayer);
+}
+
+function popSelfClose (id){
+	$("#"+id).hide();
+	$(".dimmed").removeClass("on");
+}
+
+$(document).on("click", ".dimmed", function(e){
+	var pwObj = $("#layer-password_confirm");
+	if(pwObj.length > 0){
+		var pwView = pwObj.css('display');
+		if(pwView === 'block') return;
+	} else if( $(".product_detail").length ){
+		popSnsClose($(".popup_layer_wrap"));
+	} else {
+		popClose($(".popup_layer_wrap"));
+	}
+	e.preventDefault();
+});
+
+function allCheckboxProp(className,prop){
+	$("."+className).each(function(){
+		var _this = $(this);
+		var _default = {
+			checkedTarget 	: "#container",
+			relationship	: ""
+		}
+
+		var _options 		= $.extend(_default, _this.data())
+		var allCheckbox 	= _this.find("input[type='checkbox']");
+		var eachCheckbox 	= $(_options.checkedTarget).find("input[type='checkbox']").not(allCheckbox).not(":disabled");
+		var sameTargetAllCheckbox = $(".all_check[data-checked-target='"+(_this.data("checkedTarget"))+"']").find("input[type='checkbox']");
+		var checked;
+
+		allCheckbox.on({
+			"change" : function(){
+				if( $(this).prop("checked") == true){
+					checked = true;
+					sameTargetAllCheckbox.prop("checked", true);
+				}
+				else {
+					checked = false;
+					sameTargetAllCheckbox.prop("checked", false);
+				}
+				eachCheckbox.prop("checked" , checked);
+			}
+		});
+
+		eachCheckbox.on({
+			"change" : function(){
+				if( eachCheckbox.filter(":checked").size()  == eachCheckbox.size() ){
+					allCheckbox.prop("checked" , true);
+				} else {
+					allCheckbox.prop("checked" , false);
+				}
+			}
+		});
+	});
+}
+
+function facetOptionCheck(){
+	if( $(".search_wrap").find(".condition li.off").size() > 0 ){
+		$(".search_wrap").find(".condition .btn_toggle").show();
+		if( $(".search_wrap").find(".condition .btn_toggle").hasClass("on")){
+			$(".search_wrap").find(".condition .btn_toggle").removeClass("on").find("span").text("更多条件");
+			$(".search_wrap").find(".condition li.off").hide();
+		}
+	} else {
+		$(".search_wrap").find(".condition .btn_toggle").hide();
+	}
+}
+
+var beforeReviewHeight = $(".js-product-detail .review_list").outerHeight();
+
+function commentAboutProductHeightCtrl(){
+	var slickList = $(".js-product-detail").find("> .slick-list");
+	var beforegHeight =  slickList.height();
+	var afterReviewHeight = $(".js-product-detail .review_list").outerHeight();
+	slickList.height(beforegHeight+(afterReviewHeight-beforeReviewHeight));
+	beforeReviewHeight = afterReviewHeight;
+}
+
+/* slick */
+/* 2016-09-26 속도개선 : 메인 배너 롤링 속도 변경 */
+var autoSlickOption = {
+	dots: true,
+	dotsClass : "banner_nav",
+	arrows : false,
+	autoplay : true,
+	autoplaySpeed : 2000,
+	cssEase: 'linear',
+	slidesToShow: 1,
+	pauseOnHover : true,
+	pauseOnDotsHover : true,
+	sjLazyTune : true,
+	lazyLoad: "ondemand"
+}
+/* 2016-09-26 속도개선 : 메인 배너 롤링 속도 변경 - e */
+
+var manualSlickOption = {
+	dots: true,
+	dotsClass : "banner_nav",
+	arrows : false,
+	autoplay : false,
+	autoplaySpeed : 2000,
+	cssEase: 'linear',
+	slidesToShow: 1,
+	pauseOnHover : true,
+	pauseOnDotsHover : true,
+	lazyLoad: "ondemand"
+}
+
+var slideBanner = function(className){
+	// single slide
+	$(className).slick({
+		autoplay : true,
+		dots: true,
+		dotsClass : "banner_nav",
+		arrows : false,
+		cssEase: 'linear',
+		slidesToShow: 1,
+		pauseOnHover : true,
+		pauseOnDotsHover : true,
+		lazyload : "ondemand"	// 2016-07-21 : 속도개선 sj_hm
+	});
+}
+
+/* 2017-06-27 핫세일 UI개선 2차 [S] */
+var slideBanner_hotsale = function(className){
+	var $hotsaleBanner = $(className);
+	var $status = $('.banner_count');
+	var $statusCont = $status.find('.current');
+	var $statusTotal = $status.find('.total');
+	$hotsaleBanner.on('init reInit afterChange', function (event, slick, currentSlide, nextSlide) {
+		var i = (currentSlide ? currentSlide : 0) + 1;
+		$statusCont.text(i);
+		$statusTotal.text(' / ' + slick.slideCount);
+		setTimeout(function(){
+			$status.show();
+		},0);
+	});
+
+	if($(className).length){
+		$(className).slick({
+	      speed: 500,
+	      cssEase: 'linear',
+	      swipe: true,
+	      swipeToSlide: true,
+	      touchThreshold: 10,
+		  autoplay: false,
+		  arrows: false,
+		  dots: true,
+		  dotsClass : "banner_nav"
+	    });
+	}
+
+}
+/* 2017-06-27 핫세일 UI개선 2차 [E] */
+
+var slideManual = function(className){
+	//single manual slide
+	if($(className).length && $(className).hasClass("slick-slider") == false){
+		$(className).each(function(){
+			if($(this).is(":visible")){
+				$(this).slick(manualSlickOption);
+			}
+		});
+	}
+}
+
+var slideAuto = function(className){
+	//single auto slide
+	if($(className).length && $(className).hasClass("slick-slider") == false){
+		$(className).each(function(){
+
+			/* 몰메인 대배너 전체보기 아이콘 변경 [S] [추가] */
+			if ($(this).attr('id') == 'slideAutoCount'){
+				var $mainTopBannerBtn = $('.mainTopBannerCount .banner_count');
+				var $topBannerBtnCont = $mainTopBannerBtn.find('.current');
+				var $topBannerBtnTotal = $mainTopBannerBtn.find('.total');
+				$(this).on('init reInit afterChange', function (event, slick, currentSlide, nextSlide) {
+					var i = (currentSlide ? currentSlide : 0) + 1;
+					$topBannerBtnCont.text(i);
+					$topBannerBtnTotal.text(' / ' + slick.slideCount);
+					setTimeout(function(){
+						$('.mainTopBannerCount').show();
+					},0);
+					$(this).find('.banner_nav').hide();
+				});
+			}
+			/* 몰메인 대배너 전체보기 아이콘 변경 [E] */
+
+			if($(this).is(":visible")){
+				$(this).slick(autoSlickOption);
+			}
+		});
+	}
+}
+
+var sliderFor = function(className){
+	// rolling navigation, rolling page
+	$(className).slick({
+		slidesToShow: 1,
+		slidesToScroll: 1,
+		arrows: false,
+		asNavFor: '.sliderNav',
+		lazyload : "ondemand"	// 2016-07-21 : 속도개선 sj_hm
+	});
+}
+
+var sliderNav = function(className){
+	$(className).slick({
+		slidesToShow: 3,
+		slidesToScroll: 1,
+		asNavFor: '.sliderFor',
+		centerMode: true,
+		centerPadding : 0,
+		focusOnSelect: true,
+		lazyload : "ondemand"	// 2016-07-21 : 속도개선 sj_hm
+	});
+}
+
+var sliderNavSingle = function(className){
+	$(className).slick({
+		slidesToShow: 3,
+		slidesToScroll: 1,
+		centerMode: false,
+		//centerPadding : 0,
+		focusOnSelect: true,
+		lazyload : "ondemand"	// 2016-07-21 : 속도개선 sj_hm
+	});
+}
+
+/* 2017-05-15 기획전 내 배너영역 추가 픽스다인 */
+var slideBanner_single = function(className){
+	//single auto slide
+	if($(className).length && $(className).hasClass("slick-slider") == false){
+		$(className).each(function(){
+			if($(this).is(":visible")){
+				$(this).slick(autoSlickOption);
+			}
+		});
+	}
+}
+/* //2017-05-15 기획전 내 배너영역 추가 픽스다인 */
+
+// 2017.08.17 Search UIUX Improvement START
+var slide2Auto = function(className){
+	// single slide
+	if($(className).length){
+		$(className).slick({
+			dots: true,
+			dotsClass : "banner_nav",
+			autoplay : false,
+			arrows : false,
+			cssEase: 'linear',
+			slidesToShow: 2,
+			slidesToScroll: 2,
+			pauseOnHover : true,
+			pauseOnDotsHover : true,
+			lazyLoad : "ondemand"
+		});
+	}
+}
+// 2017.08.17 Search UIUX Improvement END
+
+/* layout action */
+function layout(){
+	var winH 	= $(window).height();
+	var hHeight = $("#header").outerHeight() - $(".gnb").outerHeight();
+	$("#container").css({"-webkit-overflow-scrolling":"touch"});
+	$(".total_menu").css({"padding-top":hHeight})
+	$(".total_menu").find(".inner").height(winH-hHeight);
+
+	$(window).resize(function(){
+		winH 	= $(window).height();
+		$(".total_menu").find(".inner").height(winH-hHeight);
+	});
+}
+
+function topbtnPosition(){
+	var btnGotop 		= $(".go_top , .go_prev");
+	var btnGoRvp		= $("footer .go_floating");
+	var btnPayment 		= $(".btn_payment");
+	var btnCompare 		= $(".btn_compare_wrap");
+	var layerMsg		= $(".layer_msg");
+	var naviMenu		= $(".fgnb_sticky");
+	var btnGotopBottom;
+
+	var msgH 			= layerMsg.filter(":visible").outerHeight();
+	var btnCompareH		= btnCompare.outerHeight();
+	var btnPaymentH		= btnPayment.outerHeight();
+	var naviMenuH		= naviMenu.outerHeight();
+	var whiteSpaceH		= 10;
+
+	var	paymentCheck    = btnPayment.length > 0 ? true : false;
+	var	compareCheck    = btnCompare.length > 0 ? true : false;
+	var	layerMsgCheck   = layerMsg.filter(":visible").length > 0 ? true : false;
+
+	if( layerMsgCheck ){ //레이어알림창 있을 경우
+		if( paymentCheck ){
+			btnGotopBottom = msgH + naviMenuH + btnPaymentH + whiteSpaceH;
+		}
+		else if ( compareCheck ) {
+			btnGotopBottom = msgH + naviMenuH + btnCompareH + whiteSpaceH;
+		} else {
+			btnGotopBottom = msgH + naviMenuH + whiteSpaceH;
+		}
+	} else { //레이어알림창 없을 경우
+		if( paymentCheck ){
+			btnGotopBottom = naviMenuH + btnPaymentH + whiteSpaceH;
+		}
+		else if ( compareCheck ) {
+			btnGotopBottom = naviMenuH + btnCompareH + whiteSpaceH;
+		} else {
+			btnGotopBottom = naviMenuH + whiteSpaceH;
+		}
+	}
+	btnGotop.css("bottom", btnGotopBottom );
+	btnGoRvp.css("bottom", btnGotopBottom );
+}
+
+function scrollStart (type, check) {
+	var winScroll 	= $(window).scrollTop();
+
+	if( type == "productDetail" ){
+		var docHeight 		= $(document).height();
+		var winHeight 		= $(window).height();
+		var pageWrap 		= $("#wrap");
+		var topHeader 		= $("#header");
+		var subHeader 		= $(".inner.fixed");
+		var headerHeight 	= topHeader.height();
+		var gnbMenu			= topHeader.find(".gnb .menu");
+		var container 		= $("#container");
+
+		function showHeader (){
+			topHeader.css({"top":0, "left" : 0, "position" : "fixed" });
+			subHeader.css({"top":headerHeight});
+			container.css({"padding-top" : headerHeight});
+		}
+
+		function hideHeader (){
+			if( $("body").addClass("Huawei-MT") ){
+				topHeader.css({"top":-headerHeight + 1, "left" : 0,  "position" : "fixed" });
+			} else {
+				topHeader.css({"top":-headerHeight, "left" : 0,  "position" : "fixed" });
+			}
+
+			subHeader.css({"top":0});
+			container.css({"padding-top" : 0});
+		}
+
+		hideHeader();
+
+//		if( check ){
+//			if (winScroll < 1 ){
+//				showHeader();
+//			} else {
+//				hideHeader();
+//			}
+//		}
+	}
+
+	var btnGotop = $("footer .go_top");
+	var btnGoRvp = $("footer .go_floating");
+	if (winScroll ==0){
+		btnGotop.css({"opacity":0});
+		setTimeout(
+				function(){btnGotop.hide();}
+				,100);
+		btnGoRvp.removeClass('on');
+	} else {
+		btnGotop.css({"opacity":1});
+		btnGotop.fadeIn();
+		btnGoRvp.addClass('on');
+	}
+}
+
+function toggleClass (target, className) {
+	if (target.hasClass(className)) {
+		target.removeClass(className);
+	} else {
+		target.addClass(className);
+	}
+}
+
+function winScrollDisable(winScroll, nav){
+	if (winScroll){
+		$("#container").removeClass("on");
+		$(window).scrollTop(winScrollTop);
+		if (!nav){
+			$("#container").removeClass("layerZindex");
+		}
+	} else {
+		winScrollTop = $(window).scrollTop();
+		$("#container").addClass("on").scrollTop(winScrollTop);
+		winScrollTop = $("#container").scrollTop();
+		if (!nav){
+			$("#container").addClass("layerZindex");
+		}
+	}
+}
+
+function isNumber(s) {
+	s += '';
+	s = s.replace(/^\s*|\s*$/g, '');
+	if (isNaN(s)) return false;
+	return true;
+}
+
+function productAmountCheck(){
+	if( $(".amount").size() > 0 ){
+		$(".amount").each(function(){
+			var _this = $(this);
+			var countInput 		= _this.find("input");
+			var beginAmount		= Number(countInput.val());
+			var minAmount 		= Number(countInput.data("minAmount")) || 1;
+			var maxAmount 		= Number(countInput.data("maxAmount")) || 999999;
+			var packageAmount 	= Number(countInput.data("packageAmount")) || 1;
+
+			if( _this.find(".minus").size() > 0 ){
+				countInput.val( beginAmount );
+				countInput.data("prevCount" , countInput.val());
+			}
+
+			if( _this.find(".btn_modify").size() > 0 ){
+				countInput.data("currentCount" , countInput.val());
+			}
+
+			/* if(! _this.find("input").attr("data-min-amount") && _this.find(".minus").size() > 0 ){
+				_this.data("minAmount" , _this.val());
+			} */
+
+		});
+	}
+}
+
+// number type max length limit
+function inputNumberMaxLengthCheck(object){
+	if (object.value.length > object.maxLength){
+		object.value = object.value.slice(0, object.maxLength);
+	}
+}
+
+function paymentSelectPlaceGuideTextShow(){
+	var checkedRadio = $(".payment_info .space .radio_list").find("input[type='radio']:checked");
+	$(".payment_info .space .tbl_list01.direct").hide();
+	$(".payment_info .space .tbl_list01.via").hide();
+
+	if( checkedRadio.parents("li").index() == 0 ){
+		$(".payment_info .space .tbl_list01.direct").show();
+	} else if ( checkedRadio.parents("li").index() == 1 ){
+		$(".payment_info .space .tbl_list01.via").show();
+	}
+}
+
+// via info
+function cartPaymentInfoViaInit(){
+	var viaArea = $(".payment_info").find(".space");
+	var val = $(".payment_info").find("#airport").val();
+
+	if( val == "P" || val == "U" || val == "I" ){
+		viaArea.find(".radio_list li:eq(0) input[type='radio']").prop({"checked" : true, "disabled" : true });
+		viaArea.find(".radio_list li:eq(1) input[type='radio']").prop("disabled" , true);
+		viaArea.find("select").hide();
+	}
+	else if ( val == "" ){
+		viaArea.find(".radio_list li:eq(0) input[type='radio']").prop({"checked" : false, "disabled" : true });
+		viaArea.find(".radio_list li:eq(1) input[type='radio']").prop({"checked" : false, "disabled" : true });
+		viaArea.find("select option:eq(0)").prop("selected" , true);
+		viaArea.find("select").hide();
+	}
+	/* 2016.04.05 개발 요청 주석 처리 : [필독] common.js 수정된 부분 퍼블리셔에게 수정요청
+	else {
+		viaArea.find(".radio_list li:eq(0) input[type='radio']").prop({ "checked" : true , "disabled" : false});
+		viaArea.find(".radio_list li:eq(1) input[type='radio']").prop("disabled" , false);
+	}
+	*/
+
+	var idx = viaArea.find(".radio_list input[type='radio']:checked").parents("li").index();
+
+	if( idx == 0 ){
+		viaArea.find("select").hide().find("option:eq(0)").prop("selected" , true);
+	}
+	else if( idx == 1 ) {
+		viaArea.find("select").show();
+	}
+
+	paymentSelectPlaceGuideTextShow();
+}
+
+
+$(window).scroll(function(){
+	if(! windowScrollFuncPrevent ){
+		if( $(".product_detail").length ){
+			if ( isHideMobileWebTopGnb == false ){
+				scrollStart("productDetail", true);
+			}
+		}  else {
+			scrollStart();
+		}
+	}
+});
+
+/* common */
+$(function(){
+
+	// product module ellipsis
+	$(".product_off .name").dotdotdot();
+
+	// canvasloader
+	var canvasLoaderId;
+	var canvasLoaderSetColor;
+	/*if( $("#canvasloader-white").length ){
+		canvasLoaderId 			= "canvasloader-white";
+		canvasLoaderSetColor 	= "#ffffff";
+		canvasLoaderInit();
+	} else if( $("#canvasloader-black").length ){
+		canvasLoaderId 			= "canvasloader-black";
+		canvasLoaderSetColor 	= "#000000";
+		canvasLoaderInit();
+	}*/
+
+	/*function canvasLoaderInit(){
+		var canvasLoader = new CanvasLoader(canvasLoaderId);
+		canvasLoader.setColor(canvasLoaderSetColor); 	// default is '#000000'
+		canvasLoader.setShape('roundRect'); 			// default is 'oval'
+		canvasLoader.setDiameter(24); 					// default is 40
+		canvasLoader.setDensity(11); 					// default is 40
+		canvasLoader.setRange(1); 						// default is 1.3
+		canvasLoader.setSpeed(1); 						// default is 2
+		canvasLoader.setFPS(20); 						// default is 24
+		canvasLoader.show(); 							// Hidden by default
+		var loaderObj = document.getElementById("canvasLoader");
+		loaderObj.style.position = "absolute";
+		loaderObj.style["top"] = canvasLoader.getDiameter() * -0.5 + "px";
+		loaderObj.style["left"] = canvasLoader.getDiameter() * -0.5 + "px";
+	}
+	*/
+
+	// datepicker
+	if( $(".datepicker").size() > 0 ){
+		$(".datepicker").each(function(){
+			var thisData = $(this).data();
+			var _default = {
+				minDateValue : "-0d",
+				maxDateValue : null,
+			}
+			var _option = $.extend(_default, thisData);
+
+			if( $(this).hasClass("no-limit") ){
+				_option.minDateValue = null;
+				_option.maxDateValue = null;
+			}
+
+			$(this).datepicker({
+				//changeMonth:true,
+				//changeYear:true,
+				showOn:'button',
+				buttonImage:'../img/common/ico_calendar.png',
+				buttonImageOnly:true,
+				langtit:"",
+				showMonthAfterYear:true,
+				minDate: _option.minDateValue,
+				maxDate: _option.maxDateValue,
+				dayNamesMin:['Su','Mo','Tu','We','Th','Fr','Sa'],
+				monthNames: [ "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12" ],
+				monthNamesShort: [ "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12" ],
+				dateFormat:'yy-mm-dd',
+				onClose: function(){
+					$(".dimmed").css({ "z-index" : "" });
+				}
+			});
+
+			$(this).next(".ui-datepicker-trigger").on({
+				"click" : function(e){
+					$(".dimmed").addClass("on").css({ "z-index" : 112 });
+					e.preventDefault();
+				}
+			});
+		});
+	}
+
+	/* layout action */
+	layout();
+	topbtnPosition();
+
+	/*
+	if( $(".product_detail").length ){
+		scrollStart("productDetail");
+		$(window).scrollTop(1);
+	}  else {
+		scrollStart();
+	}
+	*/
+
+	//slick Init
+	if ($('.slideAuto').length > 0) {
+		slideAuto('.slideAuto');
+    }
+    if ($('.slideManual').length > 0) {
+    	slideManual('.slideManual');
+    }
+    if ($('.sliderFor').length > 0) {
+    	sliderFor('.sliderFor');
+    }
+    if ($('.sliderNav').length > 0) {
+    	sliderNav('.sliderNav');
+    }
+    if ($('.slideBanner').length > 0) {
+    	slideBanner('.slideBanner');
+    }
+    if ($('.sliderNavSingle').length > 0) {
+    	sliderNavSingle('.sliderNavSingle');
+    }
+	/* 2017-05-15 기획전 내 배너영역 추가 픽스다인 */
+	if ($('.slideBanner_single').length > 0) {
+    	slideBanner_single('.slideBanner_single');
+    }
+	/* //2017-05-15 기획전 내 배너영역 추가 픽스다인 */
+
+	/*var sjSlideFlag = false;
+	if ($('div.koreaBest').length > 0) {
+		$(window).scroll(function(){sjScrollInit();});
+		sjScrollInit();
+	} else {
+		sliderFor('.sliderFor');
+		sliderNav('.sliderNav');
+	}
+	function sjScrollInit(){
+		var sjScroll = $(document).scrollTop() + $(window).height();
+		var sliderNavPos = $('div.koreaBest').offset().top;
+		if (sliderNavPos - 120 < sjScroll){
+			if (sjSlideFlag == false) {
+				sliderFor('.sliderFor');
+				sliderNav('.sliderNav');
+			sjSlideFlag = true;
+			}
+		}
+	};*/
+
+
+    // lazyload : 속도개선
+	if($.fn.lazyload) {
+		if($(".main_warp").length < 1){	// 메인이 아닌 경우,
+			$('img.lazy').lazyload({
+				effect:"fadeIn"
+			});
+		}
+	}
+
+	// header menu
+	var headerArea = $("#header");
+	var btnNav = headerArea.find(".btn_total");
+	var navON = false;
+	var $searchList = $(".top_search_result");
+
+	$(".total_menu").hide();
+
+	btnNav.on("click", function(e) {
+		e.preventDefault();
+		location.href = contextPath + '/category';
+	});
+
+	var totalbtn 				= $(".js-btn-total");
+	totalbtn.on("click", function(e) {
+		e.preventDefault();
+		location.href = contextPath + '/category';
+	});
+
+	//footer menu
+	footerMenu.init();
+
+	// footer msg layer
+	var $msg = $(".layer_msg");
+	var $msgClose = $(".layer_msg .close");
+
+	/* window load time */
+	//$(window).load(function(){
+	$(document).ready(function(){ /** 16.04.21 퍼블리싱 적용 (우정일) **/
+
+		// main layer
+		$(".initial_layer").each(function(){
+			popOpen($("#"+ $(this).attr("id")));
+		});
+
+		/* 딤 제거 - 최윤숙 책임 요청 2015/05/23 */
+		/*if (popupCounter > 0){
+			$('div.dimmed').addClass("on").css({ "z-index" : 199});
+		}*/
+
+		setTimeout(function(){
+			$msg.removeClass("visible");
+			$msg.slideUp(function(){
+				topbtnPosition();
+			});
+		},10000);
+	});
+
+	$msgClose.on("click",function(e){
+		$msg.removeClass("visible");
+		$msg.slideUp(function(){
+			topbtnPosition();
+		});
+		e.preventDefault();
+	});
+
+	/* gnb navigation slide */
+	var $gnbwrap = $(".gnb");
+	var $gnb = $gnbwrap.find(".inner");
+	var $item = $gnb.find(".slide");
+	var $menu = $gnb.find(".menu");
+	var itemWidth;
+	var target;
+	var lastTarget = 0;
+	var speed = 300;
+	var initData = [];
+	var $itemOn = $item.filter(".on");
+	var $itemOnIdx = $itemOn.index();
+
+	var menuTotalWidth;
+
+	// 2021-09-15 : EC 글로벌몰 서비스 이동팝업
+	// gnbInit();
+
+	$item.each(function(){
+		initData.push($(this).offset().left);
+	});
+
+	if( initData[$itemOnIdx] > initData[1] ){
+		// 2021-09-15 : EC 글로벌몰 서비스 이동팝업
+		$menu.scrollLeft(initData[$itemOnIdx-1]);
+	}
+
+	// 2021-09-15 : EC 글로벌몰 서비스 이동팝업
+	// $(window).resize(function(){
+	// 	gnbInit()
+	// });
+
+	// $gnb.on("click", function() {
+	// 	lastTarget = $gnb.scrollLeft();
+	// });
+
+	/*
+	$gnb.on("touchend", function() {
+		var near = [];
+		var abs = 0;
+		var min = menuTotalWidth/$item.length;
+		var target = $gnb.scrollLeft();
+		var data = [];
+
+		$item.each(function(idx){
+			data.push($(this).offset().left);
+			if (data[idx] < 0 && data[idx]-min < 0){
+				near.push(data[idx]);
+			}
+		});
+
+		if(lastTarget > target){
+			$gnb.animate({scrollLeft : (near.length*min)-min},speed);
+		} else {
+			$gnb.animate({scrollLeft : near.length*min},speed);
+		}
+	});
+	*/
+	function gnbInit(){
+		menuTotalWidth = 10;
+		$item.each(function(){
+			menuTotalWidth += $(this).outerWidth(true);
+		});
+		// $menu.width(menuTotalWidth);
+	}
+
+	// layer popup
+	var btnLayer = $('.open-popup');
+	btnLayer.on('click', function(e){
+		popClick($(this));
+		e.preventDefault();
+		if (isHideMobileWebTopGnb && osName == "android"){
+			var appurl = 'shilladfs://setLayerPopup?{"status":"N"}';
+			window.location.href = appurl;
+		}
+	});
+
+	$(document).on("click", ".popup_layer_wrap .close", function(e){
+		popClose($(this).parents(".popup_layer_wrap"));
+		e.preventDefault();
+	});
+
+	$(document).on("click", ".popup_layer_wrap .btn_cancel", function(e){
+		popClose($(this).parents(".popup_layer_wrap"));
+		e.preventDefault();
+	});
+
+	// UI/UX 개선과제 - 개인화 영역 Sns 레이어 팝업 추가
+	// layer popup
+	var btnLayer = $('.sns-popup');
+	btnLayer.on('click', function(e){
+		popClick($(this));
+		e.preventDefault();
+		if (isApp && isAppSnsLayerPopup && navigator.userAgent.match(/iPhone|iPad|iPod/i)) {
+			var appurl = 'shilladfscn://showFilterLayout';
+			window.location.href = appurl;
+		} else if (isApp && isAppSnsLayerPopup && navigator.userAgent.match(/ndroid/i)) {
+			var appurl = 'shilladfscn://showFilterLayout';
+			window.location.href = appurl;
+		}
+	});
+
+	$(document).on("click", ".sns_close", function(e){
+		popSnsClose($(".popup_layer_wrap"));
+		e.preventDefault();
+	});
+
+	// 2016.08.01 추가 - 은련 간편결제 툴팁용
+	$(document).on("click", ".open_tootip", function(e){
+		popClick($(this));
+		bodyScrollStart();
+		e.preventDefault();
+	});
+
+	// accordion
+	var accoList = $(".accordion_list");
+	var btnAccoOpen = accoList.find(".tit a");
+
+	if( accoList.parents(".cart_paymentinfo").length || accoList.parents(".cart_complete_order").length || accoList.parents(".rs_detail").length ){
+		var acc_paymentinfo = true;
+	}
+
+	$(document).on('click', '.accordion_list .tit a', function( e ){
+		var $target = $(this).parent(".tit").parent("li");
+
+		/* 2016-09-27 속도개선 */
+		$target.find(".acdn_lazy").each(function(){
+			$(this).attr("src",$(this).attr("data-acdn")).end().removeAttr("data-acdn");
+		});
+		/* 2016-09-27 속도개선 - e */
+
+		if ($target.hasClass("on")) {
+			$target.removeClass("on");
+			$target.find('.slideManual').slick("unslick");
+		} else {
+			if(! acc_paymentinfo ){
+				accoList.find("li").removeClass("on");
+			}
+			//accoList.find("li").find('.slideManual').slick("unslick");
+			$(this).parent(".tit").parent("li").addClass("on");
+			slideManual($target.find('.slideManual'));
+		}
+		e.preventDefault();
+	});
+
+	/* each */
+	//facet ( detail search )
+	var detailSearch 	= $(".search_wrap");
+	var btnDetailSearch = detailSearch.find(".search_head .btn, .search_head .btn_toggle");
+	var priceMinData = detailSearch.find("input[type='number']").eq(0).val();
+	var priceMaxData = detailSearch.find("input[type='number']").eq(1).val();
+	var btnFacetMore = detailSearch.find(".condition .btn_toggle");
+	var categorySelect = detailSearch.find("#c_brand");
+	var btnDetailSearchClose = $("#newSearchFilter > .inner .closeSearchFilter");	// 2017.08.17 Search UIUX Improvement 검색 UI 개선 : 리앙
+
+	if(! detailSearch.hasClass("category_page") || detailSearch.find(".condition li.off").size() == 0 ){
+		btnFacetMore.hide();
+	} else {
+		btnFacetMore.show();
+	}
+
+
+	btnDetailSearch.on("click", function(e){
+		if ($(this).find("a.ic_toggle").hasClass("on")) {
+			mobile_grid_close_call(); // 2017.08.17 Search UIUX Improvement off
+			$(this).find("a.ic_toggle").removeClass("on");
+			$(this).parents(".search_wrap").removeClass("on");
+			/*20160830수정 */
+			//$(mask).removeClass("on").css({ "z-index" : "" });
+			// 2017.08.17 Search UIUX Improvement START 검색 UI 개선 : 리앙
+			$(".dimmed").removeClass("on");
+			$("#newSearchFilter").removeClass("on");
+            $("#mainNew").unbind('touchmove');
+			$("body").css("overflow","auto");
+			// 2017.08.17 Search UIUX Improvement END 검색 UI 개선 : 리앙 - end
+		} else {
+			mobile_grid_open_call(); // 2017.08.10 Search UIUX Improvement on
+			$(this).find("a.ic_toggle").addClass("on");
+			$(this).parents(".search_wrap").addClass("on");
+			/*20160830수정 */
+			//$(mask).addClass("on").css({ "z-index" : 10 });
+			// 2017.08.17 Search UIUX Improvement START 검색 UI 개선 : 리앙
+			$(".dimmed").addClass("on");
+			$("#newSearchFilter").addClass("on");
+            $("#mainNew").bind('touchmove', function(e){e.preventDefault()});
+			$("body").css("overflow","hidden");
+
+			//var _this = ".accordion_cont .nav_product_menu_list";
+			var _this = ".accordion_cont .nav_product_menu_list:not('.brandList')";	// 검색고도화 수정 2018-11-05
+
+			$(_this + " li:not(:first-child) a").removeClass('on').next("ul").stop().slideUp();
+			$(_this + " li:first-child a").addClass('on').next("ul").stop().slideDown();
+			// 2017.08.17 Search UIUX Improvement END 검색 UI 개선 : 리앙 - end
+
+			// 검색고도화 수정 :: 상세검색 > 카테고리 영역 없을 때 브랜드 목록 활성화 (2019.02.12)
+			var a = $(".searchFilterAcco .accordion_tit a");
+	        var b = ".accordion_cont .nav_product_menu_list.brandList";
+			var c = ".accordion_cont .lang_wrap .list_lang";
+			var idx = $(".searchFilterAcco .tab_lang").find("a.selected").parent('li').index();
+
+			if (a.hasClass("on")) {
+				var brandInited = $(c).eq(idx).find('li a.on').length > 0;
+				var $b = $(b).eq(idx).show();
+				if (!brandInited) {
+					$("li:not(:first-child) a", $b).removeClass('on').next("ul").stop().slideUp();
+					$("li:first-child a", $b).addClass('on').next("ul").slideDown(); // 브랜드목록 UX오류수정 2019-06-03 .stop()
+				}
+
+				$(c).hide();
+				$(c).eq(idx).show();
+				$(c).eq(idx).find('li a').each(function(){
+					if (!brandInited) {
+						$(this).not('.disabled').addClass('on');
+					}
+					if($(this).hasClass('on')) {
+						return false;
+					}
+				});
+
+			}
+			// 검색고도화 수정 :: 상세검색 > 카테고리 영역 없을 때 브랜드 목록 활성화 (2019.02.12) - end
+		}
+		e.preventDefault();
+	});
+
+/* 2017.08.17 Search UIUX Improvement START 검색 UI 개선 : 리앙 */
+	btnDetailSearchClose.on("click",function(e){
+		mobile_grid_close_call();
+		btnDetailSearch.removeClass("on");
+		btnDetailSearch.find("a.ic_toggle").removeClass("on");
+		$(this).parents(".search_wrap").removeClass("on");
+		$(".dimmed").removeClass("on");
+		$("#newSearchFilter").removeClass("on");
+		$("#mainNew").unbind('touchmove');
+		$("body").css("overflow","auto");
+	});
+
+	var cateList = ".searchFilterAcco .accordion_cont .categoryList > li > a , .searchFilterAcco .accordion_cont .brandList > li > a";		// 검색고도화 추가 2018-11-05
+
+	$(cateList).on("click",function(){		// 검색고도화 추가 2018-11-05
+		var _this = $(this);
+		if(_this.hasClass("on")){
+			_this.removeClass("on");
+			_this.next("ul").stop().slideUp();
+		}else{
+			_this.addClass("on");
+			_this.next("ul").stop().slideDown();
+		}
+	});
+
+	/* 옵션값 추가 */
+	$(document).on("click","#newSearchFilter .schOpt", function(e){
+		var _id = $(this).data("id");
+		var _txt = $(this).text();
+		var _prt = $(this).parent();
+		var optDiv = $("#newSearchFilter .set_area .item_list > div");
+
+		if(_id.indexOf("category")!=-1){
+			optDiv =  $("#category_search_tag");
+		}
+		else if(_id.indexOf("brand")!=-1){
+			optDiv =  $("#brand_search_tag");
+		}
+		else if(_id.indexOf("price")!=-1){
+			optDiv =  $("#price_search_tag");
+		}
+		else if(_id.indexOf("stockStatus")!=-1){
+			optDiv =  $("#stockStatus_search_tag");
+		}
+		else if(_id.indexOf("benefit")!=-1){
+			optDiv =  $("#benefit_search_tag");
+		}
+		else if(_id.indexOf("gender")!=-1){
+			optDiv =  $("#category_search_tag");
+		}
+
+		if(_prt.hasClass("on")){
+			_prt.removeClass("on");
+			optDiv.find("a[data-id='"+_id+"']").parent("span").remove();
+		}else{
+			_prt.addClass("on");
+			var optList = "<span>";
+			optList += "<a href='javascript:;' data-id='"+_id+"'>"+_txt+"</a>";
+			optList += "</span>";
+
+			optDiv.prepend(optList);
+		}
+
+		var optNumber = 0;
+		optDiv.find("span").each(function(idx){
+			optNumber++;
+		});
+
+		optDiv.find("span").each(function(idx){
+			if(idx<5){
+				$(this).css({ "display" : "inline-block" });
+			}
+			else {
+				$(this).css({ "display" : "none" });
+			}
+			$(this).find('a').each(function(){
+				$(this).find('em').each(function(){
+					$(this).remove();
+				});
+			});
+			if(idx==4){
+				$(this).find('a').each(function(){
+					var ectNum = optNumber-5;
+					if(ectNum>0){
+						$(this).append("<em> 外  "+(optNumber-5)+"</em>");
+					}
+				});
+			}
+		});
+
+	});
+
+	/* 옵션값 삭제 */
+	$(document).on("click","#newSearchFilter .search_tag a", function(e){
+		var _span = $(this).parent();
+		var _id = $(this).data("id");
+		_span.remove();
+		$("#newSearchFilter .schOpt[data-id='"+_id+"']").parent().removeClass("on");
+
+		var optDiv = $("#newSearchFilter .set_area .item_list > div");
+
+		if(_id.indexOf("category")!=-1){
+			optDiv =  $("#category_search_tag");
+		}
+		else if(_id.indexOf("brand")!=-1){
+			optDiv =  $("#brand_search_tag");
+		}
+		else if(_id.indexOf("price")!=-1){
+			optDiv =  $("#price_search_tag");
+		}
+		else if(_id.indexOf("stockStatus")!=-1){
+			optDiv =  $("#stockStatus_search_tag");
+		}
+		else if(_id.indexOf("benefit")!=-1){
+			optDiv =  $("#benefit_search_tag");
+		}
+		var optNumber = 0;
+		optDiv.find("span").each(function(idx){
+			optNumber++;
+		});
+
+		optDiv.find("span").each(function(idx){
+			if(idx<5){
+				$(this).css({ "display" : "inline-block" });
+			}
+			else {
+				$(this).css({ "display" : "none" });
+			}
+			$(this).find('a').each(function(){
+				$(this).find('em').each(function(){
+					$(this).remove();
+				});
+			});
+			if(idx==4){
+				$(this).find('a').each(function(){
+					var ectNum = optNumber-5;
+					if(ectNum>0){
+						$(this).append("<em> 外  "+(optNumber-5)+"</em>");
+					}
+				});
+			}
+		});
+	});
+
+	/* 옵션값 초기화 */
+	$(document).on("click","#newSearchFilter .set_area .btn_area a.btn_brown", function(){
+		var optDiv = $("#newSearchFilter .set_area .item_list > div");
+		optDiv.find("span").remove();
+		$("#newSearchFilter .schOpt").parent().removeClass("on");
+	});
+	/* 2017.08.17 Search UIUX Improvement END 검색 UI 개선 : 리앙 - end */
+
+	// 2019.12.26 검색리뉴얼 start
+	$(document).on("click","#newSearchFilter .inBox .util a.btn_reset", function(){
+		var optDiv = $("#newSearchFilter .search_tag");
+		optDiv.find("span").remove();
+		$("#newSearchFilter .schOpt").parent().removeClass("on");
+	});
+	// 2019.12.26 검색리뉴얼 end
+
+	detailSearch.find("ul.btn_area > li:eq(0) a").on({
+		"click" : function(e){
+			detailSearch.find(".condition select").val("");
+			detailSearch.find(".condition input[type='checkbox']").prop("checked", false);
+			detailSearch.find(".condition input[type='number']").eq(0).val(priceMinData);
+			detailSearch.find(".condition input[type='number']").eq(1).val(priceMaxData);
+			e.preventDefault();
+		}
+	});
+
+	btnFacetMore.on({
+		"click" : function(e){
+			var _this = $(this);
+			if( _this.hasClass("on") ){
+				_this.removeClass("on").find("span").text("更多条件");
+				detailSearch.find(".condition li.off").hide();
+			} else {
+				_this.addClass("on").find("span").text("关闭选择项目");
+				detailSearch.find(".condition li.off").show();
+			}
+			e.preventDefault();
+		}
+	});
+
+	categorySelect.on({
+		"change" : function(){
+			if(! $(".search_wrap").hasClass("category_page") ){
+				facetOptionCheck(); //개발 반영시 제거
+			}
+		}
+	});
+
+
+	// best seller search word
+	var bestSearchWrap = $(".brand_best_wrap");
+	var bestSearchWords = bestSearchWrap.find(".brand_best");
+	var bestSearchMore = bestSearchWrap.find(".btn_more");
+	bestSearchMore.on("click", function(){
+		toggleClass(bestSearchWords, "on");
+		toggleClass(bestSearchMore, "on");
+
+		return false;
+	});
+
+	$("[data-event='accordion']").each(function(){
+		$(this).accordion($(this).data());
+	});
+
+	$("[data-event='tab']").each(function(){
+		$(this).tabpannel($(this).data());
+	});
+
+	/* $("[data-layer]").on("click",function(){
+		layerpopup($(this));
+	})*/
+
+	//all checkbox
+	$(".all_check").each(function(){
+		var _this = $(this);
+		var _default = {
+			checkedTarget 	: "#container",
+			relationship	: ""
+		}
+		var _options 		= $.extend(_default, _this.data())
+		var allCheckbox 	= _this.find("input[type='checkbox']");
+		var eachCheckbox 	= $(_options.checkedTarget).find("input[type='checkbox']").not(allCheckbox).not(":disabled");
+		var sameTargetAllCheckbox = $(".all_check[data-checked-target='"+(_this.data("checkedTarget"))+"']").find("input[type='checkbox']");
+		var checked;
+
+		allCheckbox.on({
+			"change" : function(){
+				if( $(this).prop("checked") == true){
+					checked = true;
+					sameTargetAllCheckbox.prop("checked", true);
+				}
+				else {
+					checked = false;
+					sameTargetAllCheckbox.prop("checked", false);
+				}
+				eachCheckbox.prop("checked" , checked);
+				allCheckLinkage($(this));
+			}
+		});
+
+		eachCheckbox.on({
+			"change" : function(){
+				if( eachCheckbox.filter(":checked").size()  == eachCheckbox.size() ){
+					allCheckbox.prop("checked" , true);
+				} else {
+					allCheckbox.prop("checked" , false);
+				}
+			}
+		});
+	});
+
+	// top button
+	$(".go_top").on({
+		"click" : function(e){
+			$(window).scrollTop(0)
+			e.preventDefault();
+		}
+	});
+
+	// phone select
+	$(".phone_box").each(function(){
+		var _this 	= $(this);
+		var  select = _this.find(" > select");
+
+		select.on({
+			"change" : function(){
+				var dataId = $(this).find("option:selected").data("id");
+				_this.find("*[data-target]").hide();
+				_this.find("*[data-target*='"+ dataId +"']").show();
+
+				if( dataId == "korea" ){
+					_this.find("*[data-target*='"+ dataId +"']").find("select option:first-child").prop("selected" , true)
+					.end().find("input").val("");
+				} else {
+					_this.find("*[data-target*='"+ dataId +"']").val("");
+				}
+			}
+		});
+	});
+
+	// exception choice
+	$("select[data-set-event]").each(function(){
+		var _this 		= $(this);
+		var mappingVal 	= _this.data("setEvent");
+		var getObj		= $("*[data-get-event='"+mappingVal+"']");
+
+		_this.on({
+			"change" : function(){
+				if( _this.find("option:selected").data("exception") == "on" ){
+					getObj.show();
+				} else {
+					getObj.hide();
+				}
+			}
+		});
+	});
+
+	// data max setting
+	$("input[type='date']").each(function(){
+		if(! $(this).attr("max") ){
+			var todayDate = new Date();
+			var maxYear	  = 10;
+			$(this).attr("max" , (todayDate.getFullYear()+maxYear)+"-"+(todayDate.getMonth()+1)+"-"+todayDate.getDate());
+		}
+	});
+
+	// 검색고도화 탭전환 2018-11-05
+	$('.searchFilterAcco .accordion_cont .tab_lang a').on("click", function(){
+		var idx = $(this).parent().index();
+		if (!$(this).hasClass("selected")) {
+			$(".searchFilterAcco .accordion_cont .tab_lang a").removeClass("selected");
+			$(this).addClass("selected");
+			$(".searchFilterAcco .accordion_cont .list_lang").hide().eq(idx).show();
+			$(".searchFilterAcco .accordion_cont .list_lang").find('li a').removeClass('on');			// 2019-01-07 추가
+			$(".searchFilterAcco .accordion_cont .list_lang").find('.cn a').each(function(){
+				$(this).not('.disabled').addClass('on');
+				if($(this).hasClass('on')) {
+					return false;
+				}
+			});
+
+			$(".searchFilterAcco .accordion_cont .list_lang").find('.en a').each(function(){
+				$(this).not('.disabled').addClass('on');
+				if($(this).hasClass('on')) {
+					return false;
+				}
+			});
+
+			$(".searchFilterAcco .accordion_cont .brandList").hide().eq(idx).show();
+			$(".searchFilterAcco .accordion_cont .brandList").eq(idx).find("li:not(:first-child) a").next("ul").stop().hide();		// 2019-01-07 추가
+			$(".searchFilterAcco .accordion_cont .brandList").eq(idx).find("li:first-child a").addClass('on').next("ul").stop().show();		// 2019-01-23 수정
+			$('.searchFilterAcco .accordion_cont .brand_scroll_area').scrollTop(0);
+		}
+	});
+
+	// 검색고도화 브랜드리스트 이동 2018-11-05
+	$('.searchFilterAcco .accordion_cont .list_lang a').on("click", function(){
+		$('.searchFilterAcco .accordion_cont .list_lang a').removeClass('on');
+		$(this).addClass('on');
+		var id = $(this).attr('href');
+		$(".accordion_cont .nav_product_menu_list.brandList").find('.chk_list').hide();
+		$(".accordion_cont .nav_product_menu_list.brandList").find('.chk_list').prev('a').removeClass('on');		// 2019-01-23 수정
+		$(id).find(".chk_list").show();		// 2019-01-23 수정
+		$(id).find("> a").addClass('on')
+
+	});
+
+	// 검색고도화 추가 2018-11-05
+	$(".searchFilterAcco .accordion_tit a").on("click", function() {
+		var a = $(this);
+        var b = ".accordion_cont .nav_product_menu_list.brandList";
+		var c = ".accordion_cont .lang_wrap .list_lang";			// 2019-01-07 추가
+		var idx = $(".searchFilterAcco .tab_lang").find("a.selected").parent('li').index();		// 2019-01-07 추가
+
+		if (a.hasClass("on")) {
+			var $b = $(b).eq(idx).show();		// 2019-01-07 추가
+            $("li:not(:first-child) a", $b).removeClass('on').next("ul").stop().slideUp();		// 2019-01-07 수정
+            $("li:first-child a", $b).addClass('on').next("ul").stop().slideDown();		// 2019-01-07 수정
+
+			$(c).hide();		// 2019-01-07 추가
+			$(c).eq(idx).show();		// 2019-01-07 추가
+			$(c).eq(idx).find('li a').each(function(){
+				$(this).not('.disabled').addClass('on');
+				if($(this).hasClass('on')) {
+					return false;
+				}
+			});
+
+		}
+	});
+
+	// min/max price
+	var facetMinPrice 			= $("#c_price_min");
+	var facetMaxPrice 			= $("#c_price_max");
+	var currentFacetMinPrice 	= facetMinPrice.val();
+	var currentFacetMaxPrice 	= facetMaxPrice.val();
+
+	facetMinPrice.on({
+		"change" : function(){
+			var _this = $(this);
+			var minVal = Number(_this.val());
+			var maxVal = Number(facetMaxPrice.val());
+			var maxLimit 	= Number(_this.attr("max"));
+			var minLimit 	= Number(_this.attr("min"));
+
+			if( minVal > maxVal ){
+				_this.val(currentFacetMinPrice);
+			}
+			else if( minVal > maxLimit ){
+				_this.val(currentFacetMinPrice);
+			}
+			else if( minVal < minLimit ){
+				_this.val(currentFacetMinPrice);
+			}
+			else {
+				currentFacetMinPrice = minVal;
+			}
+		}
+	});
+
+	facetMaxPrice.on({
+		"change" : function(){
+			var _this 		= $(this);
+			var maxVal 		= Number(_this.val());
+			var minVal 		= Number(facetMinPrice.val());
+			var maxLimit 	= Number(_this.attr("max"));
+			var minLimit 	= Number(_this.attr("min"));
+
+			if( maxVal < minVal ){
+				_this.val(currentFacetMaxPrice);
+			}
+			else if( maxVal > maxLimit ){
+				_this.val(currentFacetMaxPrice);
+			}
+			else if( maxVal < minLimit ){
+				_this.val(currentFacetMaxPrice);
+			}
+			else {
+				currentFacetMaxPrice = maxVal;
+			}
+		}
+	});
+
+	// textArea maxLength
+	$(document).on("keyup",".textcount",function(e){
+		e = e || window.event;
+		if( $(this).data("maxLength") != "unlimited" ){
+			var othis = $(this);
+			var count = othis.parents("tr").find(".txt_byte span");
+			var ls_str = othis.val();
+			var li_str_len = ls_str.length; //전체길이
+			var i = 0;
+			var li_byte = 0;
+			var ls_one_char = "";
+
+			var defaultByte = 1300;
+
+			if( $(this).data("maxLength") ){
+				defaultByte = Number($(this).data("maxLength"));
+			}
+
+			for(i=0; i< li_str_len; i++){
+				ls_one_char = ls_str.charAt(i);   //한글자 추출
+				if(escape(ls_one_char).length > 4){
+				  li_byte ++;   //한글 + 1
+				}else{
+				  li_byte ++;   //영어, 숫자, 한자 + 1
+				}
+			}
+
+			/* 2020-03-18 스페셜오더 중국몰 - 픽스다인 */
+			if ($(this).closest('.cs_special_order').length > 0) {
+				count = othis.next('.check');
+				count.text(li_byte + '/' + defaultByte);
+			} else {
+				count.text(li_byte);
+			}
+			/* // 2020-03-18 스페셜오더 중국몰 - 픽스다인 */
+
+			textarea_maxlength( othis, count, defaultByte );
+		}
+	});
+
+	function textarea_maxlength(obj, limitGuideTxt, maxLength){
+		if( obj.val().length > maxLength ){
+			alert("已经超过"+maxLength+"字，无法再输入。");
+			var thisTxt = obj.val();
+			thisTxt = thisTxt.substring(0, maxLength)
+			obj.val(thisTxt);
+			limitGuideTxt.text(maxLength);
+		}
+	}
+
+	// gift point
+	$(".gift_list").each(function(){
+		var input = $(this).find("input[type='checkbox'] , input[type='radio']");
+
+		input.on({
+			"change" : function(){
+				init();
+			}
+		});
+
+		init();
+
+		function init(){
+			input.parents("li").find(".img").removeClass("on");
+			input.filter(":checked").parents("li").find(".img").addClass("on");
+		}
+	});
+
+	// add wishlist
+	$(".btn_like_area a").on({
+		"click" : function(e){
+			e.preventDefault();
+		}
+	});
+
+	// FAQ 개선
+	$(".ca_select li a").on("click", function(){
+		if($(this).text().length == 0){return false};
+		$(this).addClass("on").parents("li").siblings("li").find("a").removeClass("on");
+		return false;
+	});
+
+});
+/* end : common */
+
+/*************************************************************************************************
+*
+* Image Util
+*
+*************************************************************************************************/
+var imageUtil = {
+	getSizeImage : function(source, target, size){
+		var tmpSize = [20,52,60,70,80,100,110,125,150,170,210,229,280,320,470];
+		var isSetImage = false;
+		var key
+			, k
+			, _set = 0
+		 	, setter = function (s) {
+			 	return {'url':!!s.url ? s.url : '' , 'txt':!!s.altText ? s.altText :'' };
+		 	}
+			;
+
+		for(key in source){
+			if(key == (size + 'X')){
+				target = setter(source[key]);
+				isSetImage = true;
+				break;
+			}
+		}
+
+		if (!isSetImage) {
+			for(key in source){
+				k = Number(key.replace("X",""));
+				if(size > k){
+					if (_set == 0 || k > _set) {
+						target = setter(source[key]);
+						_set = k;
+						isSetImage = true;
+					}
+				}
+			}
+		}
+
+		if(!isSetImage){
+			if(tmpSize.indexOf(size) == -1){
+				size = tmpSize[tmpSize.length - 1];
+			}
+			target.url = commonResourcePath + "/images/No_Image_" + size + "X.jpg";
+			target.txt = "no_image";
+		}
+
+		return target;
+	}
+}
+
+/* product detail */
+$(function(){
+	/* full swipe */
+	var full = '.js-product-detail';
+	var fullNav = '.js-product-nav';
+// var current = 0; // 2017-06-23 상품상세 swipe기능 제거 - [삭제]
+
+	/* 2017-06-23 상품상세 swipe기능 제거 - [S] [삭제]
+	if($(full).length){
+		// reset
+		$(full).find(".btn_prev, .btn_next, .js-color-prev, .js-color-prev").on("click",function(e){
+			e.preventDefault();
+		})
+
+		$(full).on({
+			"click" : function(){
+				setTimeout(function(){
+					slickH = $(full).find("> .slick-list > .slick-track > .slick-slide.slick-active").outerHeight();
+					$(full).find("> .slick-list ").outerHeight(slickH);
+				}, 500);
+			}
+		});
+
+		$(full).slick({
+			arrows: false,
+			infinite : true,
+			speed : 500,
+			touchMove: false,
+			adaptiveHeight: true,
+			//lazyLoad : "ondemand",	// 2016-07-21 : 속도개선 sj_hm
+			onInit : function(){
+			}
+		}).on("swipe", function(event, slick){
+			// full swipe
+			if($(slick.$slider[0]).hasClass('js-product-detail')) {
+				current = $(full).slick('slickCurrentSlide');
+				swipeAction(current);
+				$(fullNav).find(">div").removeClass("on");
+				$(fullNav).find(">div").eq(current).addClass("on");
+			}
+		})
+
+		// full swipe navigation
+		$(fullNav).find(">div>a, >div").on("click",function(e){
+			current = $(this).closest("div").index();
+
+			swipeAction(current);
+			$(full).slick('slickGoTo',current);
+
+			e.preventDefault();
+		})
+	} 2017-06-23 상품상세 swipe기능 제거 - [E] [삭제] */
+
+	/* 2017-06-23 상품상세 swipe기능 제거 - [S] [추가] */
+	$(fullNav).find(">div>a").on("click",function(e){
+		e.preventDefault();
+		var fullTabBtn = $(this);
+		var fullHref = $(this).attr('href');
+		var fullTabCon = $(fullHref);
+		$(fullTabBtn).parent().addClass('on').siblings().removeClass('on');
+		fullTabCon.show().siblings().hide();
+		if(fullTabBtn.attr("id") != "tab_review"){
+			if($(".js-detail-slide").is(":visible") && $(".js-detail-slide").hasClass("slick-slider")){
+				$(".js-detail-slide").slick("setPosition");
+			}
+		}
+	})
+	/* 2017-06-23 상품상세 swipe기능 제거 - [E] [추가] */
+
+	// nav active && scroll reset
+	function swipeAction(index){
+		$(window).scrollTop(1);
+		$(fullNav).find(">div").removeClass("on");
+		$(fullNav).find(">div").eq(index).addClass("on");
+
+		//console.log(index);
+
+		/* 2016-09-28 속도개선 */
+		if(index==2){
+			$(".receive_guide_wrap").each(function(){
+				var acdnAttr = $(this).find(".map").eq(0).find(".acdn_lazy").attr('data-acdn');
+				$(this).find(".map").eq(0).find(".acdn_lazy").attr('src',acdnAttr);
+			});
+		}
+		/* 2016-09-28 속도개선 - e */
+	}
+
+	/* product check */
+	var $productCheck = $(".js-product-check");
+	var checkElem = '.js-check';
+	var checkVal = '.js-checkval';
+
+	$productCheck.find(checkElem).on("click change", function(e){
+		var $activeTarget 	= $(this).parents(".product_off");
+		var $checkInput 	=  $activeTarget.find(checkVal);
+		if($activeTarget.hasClass("on")){
+			$activeTarget.removeClass("on");
+			$checkInput.prop("checked",false);
+		} else {
+			$activeTarget.addClass("on");
+			$checkInput.prop("checked",true);
+		}
+		e.preventDefault();
+	});
+
+	/* product recommend */
+	var $moreParent = $(".js-more-parent");
+	var $moreView = $(".js-more-view");
+	var $moreBtn = $(".js-more-btn");
+
+	$moreBtn.on("click",function(e){
+		if($moreParent.hasClass("on")){
+			$moreParent.removeClass("on");
+			//$moreView.removeAttr("style");
+		} else {
+			$moreParent.addClass("on");
+			//$moreView.height("auto");
+		}
+
+		e.preventDefault();
+	});
+
+
+	/* amount adjust */
+	productAmountCheck();
+
+	$(document).on("click", ".amount .minus", function(e){
+		var $amountInput 	= $(this).siblings("input");
+		var minAmount 		= Number($amountInput.data("minAmount")) || 1;
+		var maxAmount 		= Number($amountInput.data("maxAmount")) || 999999;
+		var packageAmount 	= Number($amountInput.data("packageAmount")) || 1;
+		var checkedAmount 	= Number($amountInput.val());
+		var currentAmount	= Number($amountInput.val());
+
+		// min,max 유효성 체크
+		if ( minAmount > packageAmount ){
+			if( (minAmount % packageAmount) > 0 ){
+				minAmount = ( minAmount + (packageAmount - (minAmount % packageAmount)));
+			} else {
+				minAmount = minAmount;
+			}
+		} else {
+			minAmount = packageAmount;
+		}
+
+		if( maxAmount > packageAmount ){
+			if ( (maxAmount % packageAmount) > 0 ){
+				maxAmount = ( maxAmount - (maxAmount % packageAmount ));
+			} else {
+				maxAmount = maxAmount;
+			}
+		} else {
+			maxAmount = packageAmount;
+		}
+
+		if( checkedAmount % packageAmount > 0 ){
+			checkedAmount = checkedAmount - (checkedAmount % packageAmount);
+		}
+
+		if( currentAmount <= maxAmount ){
+			for( var i=0; i < packageAmount; i++ ){
+				checkedAmount --;
+			}
+		}
+
+		if( checkedAmount < minAmount ){
+			alert("该商品最少"+minAmount+"个为止可订购。");
+			checkedAmount = minAmount;
+		} else if( checkedAmount > maxAmount ){
+			checkedAmount = maxAmount;
+			//alert("최대 수량은 " + maxAmount + "개입니다.");
+		}
+
+		$amountInput.val(checkedAmount);
+		$amountInput.data("prevCount" , checkedAmount);
+
+		var _countConfirmBtn = $(this).parents(".amount").find(".btn_modify");
+		var currentCount 	= Number($amountInput.data("currentCount"));
+
+		if( _countConfirmBtn.length){
+			if( Number($amountInput.val()) != currentCount  ){
+				/* 2020-03-18 스페셜오더 중국몰 - 픽스다인 */
+				if (_countConfirmBtn.closest('.cs_special_order').length > 0) {
+					_countConfirmBtn.show();
+				} else {
+					_countConfirmBtn.filter(".on").show();
+				   _countConfirmBtn.filter(".off").hide();
+				}
+			} else {
+				if (_countConfirmBtn.closest('.cs_special_order').length > 0) {
+					_countConfirmBtn.hide();
+				} else {
+					_countConfirmBtn.filter(".off").show();
+					_countConfirmBtn.filter(".on").hide();
+				}
+				/* // 2020-03-18 스페셜오더 중국몰 - 픽스다인 */
+			}
+		}
+
+		e.preventDefault();
+	});
+
+	$(document).on("click", ".amount .plus", function(e){
+		var $amountInput 	= $(this).siblings("input");
+		var minAmount 		= Number($amountInput.data("minAmount")) || 1;
+		var maxAmount 		= Number($amountInput.data("maxAmount")) || 999999;
+		var packageAmount 	= Number($amountInput.data("packageAmount")) || 1;
+		var checkedAmount 	= Number($amountInput.val());
+
+		// min,max 유효성 체크
+		if ( minAmount > packageAmount ){
+			if( (minAmount % packageAmount) > 0 ){
+				minAmount = ( minAmount + (packageAmount - (minAmount % packageAmount)));
+			} else {
+				minAmount = minAmount;
+			}
+		} else {
+			minAmount = packageAmount;
+		}
+
+		if( maxAmount > packageAmount ){
+			if ( (maxAmount % packageAmount) > 0 ){
+				maxAmount = ( maxAmount - (maxAmount % packageAmount ));
+			} else {
+				maxAmount = maxAmount /* - packageAmount;  */
+			}
+		} else {
+			maxAmount = maxAmount;
+		}
+
+		if( checkedAmount % packageAmount > 0 ){
+			checkedAmount = checkedAmount - (checkedAmount % packageAmount);
+		}
+
+		if( checkedAmount < minAmount ){
+			checkedAmount = minAmount;
+		} else if( checkedAmount >= maxAmount ){
+			checkedAmount = maxAmount;
+			alert("该商品最多"+maxAmount+"个为止可订购。");
+		} else {
+			for( var i=0; i < packageAmount; i++ ){
+				checkedAmount ++;
+			}
+		}
+
+		$amountInput.val(checkedAmount);
+		$amountInput.data("prevCount" , checkedAmount);
+
+		var _countConfirmBtn = $(this).parents(".amount").find(".btn_modify");
+		var currentCount 	= Number($amountInput.data("currentCount"));
+
+		if( _countConfirmBtn.length){
+			if( Number($amountInput.val()) != currentCount  ){
+				/* 2020-03-18 스페셜오더 중국몰 - 픽스다인 */
+				if (_countConfirmBtn.closest('.cs_special_order').length > 0) {
+					_countConfirmBtn.show();
+				} else {
+					_countConfirmBtn.filter(".on").show();
+				   _countConfirmBtn.filter(".off").hide();
+				}
+			} else {
+				if (_countConfirmBtn.closest('.cs_special_order').length > 0) {
+					_countConfirmBtn.hide();
+				} else {
+					_countConfirmBtn.filter(".off").show();
+					_countConfirmBtn.filter(".on").hide();
+				}
+				/* // 2020-03-18 스페셜오더 중국몰 - 픽스다인 */
+			}
+		}
+		e.preventDefault();
+	});
+
+	$(document).on("change keyup", ".amount input", function(e){
+
+		if( $(this).parents(".amount").find(".minus").size() > 0 ){
+			var $amountInput 	= $(this);
+			var minAmount 		= Number($amountInput.data("minAmount")) || 1;
+			var maxAmount 		= Number($amountInput.data("maxAmount")) || 999999;
+			var packageAmount 	= Number($amountInput.data("packageAmount")) || 1;
+			var checkedAmount 	= Number($amountInput.val());
+			var _countConfirmBtn = $amountInput.parents(".amount").find(".btn_modify");
+			var currentCount 	= Number($amountInput.data("currentCount"));
+
+			// min,max 유효성 체크
+			if ( minAmount > packageAmount ){
+				if( (minAmount % packageAmount) > 0 ){
+					minAmount = ( minAmount + (packageAmount - (minAmount % packageAmount)));
+				} else {
+					minAmount = minAmount;
+				}
+			} else {
+				minAmount = packageAmount;
+			}
+
+			if( maxAmount > packageAmount ){
+				if ( (maxAmount % packageAmount) > 0 ){
+					maxAmount = ( maxAmount - (maxAmount % packageAmount ));
+				} else {
+					maxAmount = maxAmount;
+				}
+			} else {
+				maxAmount = packageAmount;
+			}
+
+			if( e.type == "change" ){
+
+				if( checkedAmount < minAmount ){
+					alert("该商品最少"+minAmount+"个为止可订购。");
+					$amountInput.val(minAmount);
+					$amountInput.data("prevCount", minAmount);
+				}
+				else  if( checkedAmount > maxAmount ){
+					alert("该商品最多"+maxAmount+"个为止可订购。");
+					$amountInput.val(maxAmount);
+					$amountInput.data("prevCount", maxAmount);
+				}
+				else if( (checkedAmount % packageAmount) > 0 ){
+					alert("您选择的此项商品只能以绑定数量为单位做数量变更。");
+					$amountInput.val($amountInput.data("prevCount"));
+				} else {
+					$amountInput.data("prevCount", checkedAmount);
+				}
+			}
+
+			if( e.type == "keyup" ){
+				if( isNumber($(this).val()) == false ){
+					$amountInput.val($amountInput.data("prevCount"));
+				}
+			}
+
+			if( _countConfirmBtn.length){
+				if( Number($amountInput.val()) != currentCount  ){
+					/* 2020-03-18 스페셜오더 중국몰 - 픽스다인 */
+					if (_countConfirmBtn.closest('.cs_special_order').length > 0) {
+						_countConfirmBtn.show();
+					} else {
+						_countConfirmBtn.filter(".on").show();
+					   _countConfirmBtn.filter(".off").hide();
+					}
+				} else {
+					if (_countConfirmBtn.closest('.cs_special_order').length > 0) {
+						_countConfirmBtn.hide();
+					} else {
+						_countConfirmBtn.filter(".off").show();
+						_countConfirmBtn.filter(".on").hide();
+					}
+					/* // 2020-03-18 스페셜오더 중국몰 - 픽스다인 */
+				}
+			}
+		}
+	});
+
+
+	/* privacy scroll */
+	var $area = $(".privacy_policy > div");
+	var $link = $area.find(".link_list li");
+
+	$link.find("a").on("click",function(e){
+		var idx = $(this).parent("li").index();
+		var $offset = $area.eq(idx + 1).offset().top - $(".sub_header").height()
+
+		$("html body").scrollTop($offset);
+		e.preventDefault();
+	});
+
+	/* star check */
+	var _sParent	= $(".js-star-select");
+	var $star 		= $(".js-star-select a");
+	var _sView 		= $(".star span");
+
+	$star.on("click",function(e){
+		var idx = $(this).index();
+
+		$(this).closest(_sParent).find(_sView).removeAttr("class").addClass("point" + (idx+1));
+		$(this).closest(_sParent).find("input").removeProp("checked").removeAttr("checked");
+		$(this).closest(_sParent).find("input").eq(idx).prop("checked",true).attr("checked",true);
+		e.preventDefault();
+	});
+
+	productSwipeDot();
+	productSwipeArrow(productImgArr);
+	productSwipeNav();
+	productSwipeColor();
+});
+
+
+/* product swipe */
+// image dots
+var productImg = '.js-detail-slide';
+var productSwipeDot = function(){
+	if($(productImg).length){
+		$(productImg).each(function(){
+			if($(this).is(":visible") && $(this).find('.thum').length > 1){ // 2017-06-23 상품상세 swipe기능 제거 - [수정]
+				$(this).slick({
+					arrows : false,
+					dots: true,
+					dotsClass : "banner_nav",
+					autoplay: true,
+					autoplaySpeed: 2000,
+					lazyLoad : "ondemand"	// 2016-07-21 : 속도개선 sj_hm
+				});
+			}
+		});
+	}
+}
+
+// image arrow
+var productImgArr = '.js-detail-slide-arrow';
+var imgArrOption = {
+		arrows : true,
+		slidesToShow : 2,
+		slidesToScroll : 2,
+		infinite:true
+	}
+
+var productSwipeArrow = function(className){
+	if($(className).length && $(className).hasClass("slick-slider") == false){
+		$(className).each(function(){
+			var _this = $(this);
+			if(_this.is(":visible")){
+				$(this).slick(imgArrOption)
+				// 2017-01-03 - e
+			}
+		})
+	// 2017-06-13 상품상세 탭 이동 시 오류 수정
+	}else{
+		$(className).each(function(){
+			var _this = $(this);
+			if(_this.is(":visible")){
+				$(this).slick("setPosition");
+			}
+		});
+	}
+	// 2017-06-13 상품상세 탭 이동 시 오류 수정 - end
+}
+
+/* list or page nav */
+var productList = '.js-product-list';
+var productListNav = '.js-product-list-nav';
+var productSwipeNav = function(){
+	var current = 0;
+	if($(productList).length){
+		$(productList).slick({
+			arrows: false,
+			infinite : true,
+			speed : 500,
+			adaptiveHeight: true,
+			focusOnSelect: true,
+			touchThreshold : 3,
+			lazyLoad : "ondemand"	// 2016-07-21 : 속도개선 sj_hm
+		}).on("swipe", function(event, slick){
+			// full swipe
+			if($(slick.$slider[0]).hasClass("js-product-list")) {
+				current = $(productList).slick('slickCurrentSlide');
+				action(current);
+				$(productListNav).find(">div").removeClass("on");
+				$(productListNav).find(">div").eq(current).addClass("on");
+			}
+
+		})
+
+		// navigation
+		$(productListNav).find(">div>a, >div").on("click",function(e){
+			current = $(this).closest("div").index();
+
+			action(current);
+			$(productList).slick('slickGoTo',current);
+
+			e.preventDefault();
+		})
+
+		function action(index){
+			$(productListNav).find(">div").removeClass("on");
+			$(productListNav).find(">div").eq(index).addClass("on");
+		}
+	}
+}
+
+
+// cart list option
+function cartListOptionCheck(){
+	$(".cart_list_wrap .optionArea").each(function(){
+		var _this = $(this);
+		var orderSelect	 		= _this.find("select");
+		var countConfirmBtn 	= _this.find(".btn_modify");
+
+		orderSelect.data("selectIndex", orderSelect.find("option:selected").index());
+
+		orderSelect.on({
+			"change" : function(){
+				if( countConfirmBtn.length){
+					if( orderSelect.find("option:selected").index() != orderSelect.data("selectIndex") ) {
+						countConfirmBtn.filter(".on").css({ "display" : "block" });
+						countConfirmBtn.filter(".off").css({ "display" : "none" });
+					} else {
+						countConfirmBtn.filter(".on").css({ "display" : "none" });
+						countConfirmBtn.filter(".off").css({ "display" : "block" });
+					}
+				}
+			}
+		});
+	});
+}
+
+// color list
+var productColor = '.js-color-slide';
+
+// color chip
+function productDetailColorChip(obj){
+	var colorChip 		= obj.parents(".colorChipArea , #colorChipArea");
+	var colorSelect		= colorChip.find("select");
+	var colorSlide		= colorChip.find(".color_choice");
+	var colorSelectIdx 	= colorSelect.find("option:selected").index();
+	var countConfirmBtn = colorChip.find(".btn_modify");
+	colorSelect.data("selectIndex", colorSelect.find("option:selected").index());
+
+	init();
+
+	function init(){
+		var dataCode 	= colorSelect.val();
+		var target		= colorSlide.find("a[data-code='"+dataCode+"']");
+		var idx 		= Number(target.parent().data("slickIndex"));
+		var currentIdx 	= Number(colorSlide.find(".slick-current").data("slickIndex"));
+
+		obj.slick("slickGoTo", idx );
+		colorSlide.find("a").removeClass("active");
+		target.addClass("active");
+	}
+
+	colorSlide.find(".js-color-slide a").on({
+		"click" : function(e){
+			var dataCode = $(this).data("code");
+			colorChip.find("option[value='"+dataCode+"']").prop("selected", true);
+			colorSlide.find("a").removeClass("active");
+			$(this).addClass("active");
+
+			if( countConfirmBtn.length){
+				if( colorSelect.find("option:selected").index() != colorSelect.data("selectIndex") ) {
+					countConfirmBtn.filter(".on").css({ "display" : "block" });
+					countConfirmBtn.filter(".off").css({ "display" : "none" });
+				} else {
+					countConfirmBtn.filter(".on").css({ "display" : "none" });
+					countConfirmBtn.filter(".off").css({ "display" : "block" });
+				}
+			}
+			e.preventDefault();
+		}
+	});
+
+	colorSelect.on({
+		"change" : function(){
+			init();
+		}
+	});
+}
+
+var productSwipeColor = function(){
+	if($(productColor).length){
+		$(productColor).each(function(){
+			//var idx = $(this).find(".slide").length
+			var _this			= $(this);
+			var slideToShowSize = (_this.outerWidth()/31);
+			var prevBtn = _this.siblings('.js-color-prev'),
+				nextBtn = _this.siblings('.js-color-next');
+
+			if(_this.is(":visible")){
+				_this.slick({
+					arrows : true,
+					infinite:false,
+					draggable : true,
+					variableWidth : true,
+					slidesToShow : slideToShowSize,
+					prevArrow : prevBtn,
+					nextArrow : nextBtn,
+					swipeToSlide : true,
+					lazyLoad : "ondemand"	// 2016-07-21 : 속도개선 sj_hm
+				});
+
+				/* 2016-09-20 */
+				/*$(window).resize(function(){
+					slideToShowSize = (_this.outerWidth()/31);
+					_this.slick("unslick").slick({
+						arrows : true,
+						infinite:false,
+						draggable : true,
+						variableWidth : true,
+						slidesToShow : slideToShowSize,
+						prevArrow : prevBtn,
+						nextArrow : nextBtn,
+						swipeToSlide : true,
+						lazyLoad: "ondemand"	// 2016-07-21 : 속도개선 sj_hm
+					});
+					productDetailColorChip(_this);
+				});*/
+
+				$(window).on("orientationchange",function(){
+					slideToShowSize = (_this.outerWidth()/31);
+					_this.slick("unslick").slick({
+						arrows : true,
+						infinite:false,
+						draggable : true,
+						variableWidth : true,
+						slidesToShow : slideToShowSize,
+						prevArrow : prevBtn,
+						nextArrow : nextBtn,
+						swipeToSlide : true,
+						lazyLoad: "ondemand"	// 2016-07-21 : 속도개선 sj_hm
+					});
+					productDetailColorChip(_this);
+				});
+			}
+			productDetailColorChip(_this);
+		});
+
+		$(".js-color-prev, .js-color-next").on("click",function(e){
+			e.preventDefault();
+		})
+	}
+}
+
+/* layer popup
+function layerpopup(target){
+	var $target = $(target.data("layer"));
+	var $mask = $(".js-mask");
+
+	$target.show();
+	$mask.show();
+} */
+
+$(function(){
+	$(".btn_wrap .btn_basic").on("click",function(){
+		$(this).addClass("dark");
+		$(this).siblings().removeClass("dark");
+	});
+});
+
+
+/* product compare */
+$(function(){
+	var productCompare = {
+		setting : {
+			compareBtn01 		: $(".btn_compare01"),
+			compareBtn02 		: $(".btn_compare02"),
+			compareCancel 		: $(".btn_compareCancel"),
+			compareCont 		: $(".product_list"),
+			compareCheck 		: $(".product_list .check"),
+			layerAllCheckbox	: $("#layer-compareProducts").find(".check_all input[type='checkbox']"),
+			layerCheckbox		: $("#layer-compareProducts").find(".product_off .check input[type='checkbox']"),
+			compareProdLength	: $(".pop_compare .notice .btn_area_wrap > p strong")
+		},
+
+		init : function(){
+			this.btnEvent();
+			this.selectEvent();
+			this.layerCheck();
+		},
+
+		btnEvent  : function(){
+			productCompare.setting.compareBtn01.on({
+				"click" : function(e){
+					$(this).addClass("on");
+					productCompare.setting.compareCheck.show();
+					e.preventDefault();
+				}
+			});
+
+			productCompare.setting.compareBtn02.on({
+				"click" : function(e){
+					var checkedLength =  productCompare.setting.compareCheck.find("input[type='checkbox']").filter(":checked").size();
+
+					if( checkedLength > 1 ){
+						popClick ("#compareProducts");
+
+						$("#layer-compareProducts .products_area > .inner").slick({
+							slidesToShow:2,
+							slidesToScroll:2,
+							infinite : false,
+							lazyLoad: "ondemand"	// 2016-07-21 : 속도개선 sj_hm
+						});
+
+						$(".pop_compare h2 span").text($(this).find("strong").text());
+					}
+					e.preventDefault();
+					if (isHideMobileWebTopGnb && osName == "android"){
+						var appurl = 'shilladfs://setLayerPopup?{"status":"N"}';
+						window.location.href = appurl;
+					}
+				}
+			});
+
+			// product compare cancel
+			productCompare.setting.compareCancel.on({
+				"click" : function(e){
+					productCompare.setting.compareCheck.find("input[type='checkbox']").prop("checked" , false);
+					productCompare.setting.compareCheck.hide();
+					productCompare.setting.compareBtn01.removeClass("on");
+					productCompare.setting.compareBtn02.find("strong").text(0);
+					e.preventDefault();
+				}
+			});
+		},
+
+		selectEvent : function(){
+			var prodCheckbox =  productCompare.setting.compareCheck.find("input[type='checkbox']");
+			prodCheckbox.on({
+				"change" : function(){
+					var checkedLength =  prodCheckbox.filter(":checked").size();
+					if( checkedLength > 1 && checkedLength < 11 ){
+						productCompare.setting.compareBtn02.removeClass("btn_brown").addClass("btn_red").find("strong").text(checkedLength);
+					}
+					else if ( checkedLength == 11 ){
+						$(this).prop("checked", false);
+						alert("最多可选择10项商品进行商品比较");
+					}
+					else {
+						productCompare.setting.compareBtn02.removeClass("btn_red").addClass("btn_brown").find("strong").text(0);
+					}
+				}
+			});
+		},
+
+		layerCheck : function(){
+			var layerAllCheckbox =  productCompare.setting.layerAllCheckbox;
+			var layerCheckbox =  productCompare.setting.layerCheckbox;
+			layerAllCheckbox.on({
+				"change" : function(){
+				   if( $(this).prop("checked") == true ){
+					   layerCheckbox.prop("checked" ,  true);
+				   } else {
+					   layerCheckbox.prop("checked" ,  false);
+				   }
+				   productCompare.setting.compareProdLength.text(layerCheckbox.filter(":checked").size());
+				}
+			});
+			layerCheckbox.on({
+				"change" : function(){
+					if( layerCheckbox.filter(":checked").size() == layerCheckbox.size() ){
+						layerAllCheckbox.prop("checked" ,  true);
+					} else {
+						layerAllCheckbox.prop("checked" ,  false);
+					}
+					productCompare.setting.compareProdLength.text(layerCheckbox.filter(":checked").size());
+				}
+			});
+		}
+	}
+
+	productCompare.init();
+
+	barcodeZoom();
+
+});
+
+function barcodeZoom() {
+	// barcode zoom
+	$(".barcode_zoom").on({
+		"click" : function(e){
+			var imgSrc = $(this).parents(".barcode_img").find("img").attr("src");
+			var barCodeLayer = $("#layer-barcode");
+			barCodeLayer.show().find(".barcode_img img").attr("src" , imgSrc);
+			$(".dimmed").addClass("over").css({ "z-index" : "" });
+			var layerPos = function(){
+				var winH 	=  $(window).height();
+				var winW 	=  $(window).width();
+				if( winH > winW ){
+					barCodeLayer.removeClass("horizontal");
+				} else {
+					barCodeLayer.addClass("horizontal");
+				}
+			}
+			layerPos();
+			$(window).resize(function(){
+				layerPos();
+			});
+			e.preventDefault();
+		}
+	});
+
+	$("#layer-barcode .close").on({
+		"click" : function(e){
+			$(".dimmed").removeClass("over");
+			e.preventDefault();
+		}
+	});
+
+}
+
+/* marketing */
+$(function(){
+	var newArrivals = $(".newarrivals_wrap");
+
+	newArrivals.find(".tabmenu .tab1 a").on({
+		"click" : function(){
+			$(".btn_compare_wrap").show();
+		}
+	});
+
+	newArrivals.find(".tabmenu .tab2 a").on({
+		"click" : function(){
+			$(".btn_compare_wrap").hide();
+		}
+	});
+
+	$(".marketing_wrap .sliderNavSingle").each(function(){
+		var _this = $(this);
+
+		if(_this.find(".list").size() < 4 ){
+			_this.addClass("slick-none");
+			_this.find(".list").on({
+				"click" : function(){
+					$(this).siblings().removeClass("on").end().addClass("on");
+				}
+			});
+		}
+	});
+
+});
+/* end : marketing */
+
+
+/* cart */
+$(function(){
+
+	//출발지점 selectBox 레이어 호출
+	/* $("#airportSelect").each(function(){
+		var _this = $(this);
+		var data = $(this).data();
+
+		$(".btn_airport_select").on({
+			"click" : function(e){
+				if ( _this.val() == data.port ){
+					popOpen($("#layer-searchship"));
+				}
+				else {
+					popOpen($("#layer-searchflight"));
+				}
+				e.preventDefault();
+			}
+		});
+	}); */
+
+	// default open layer
+	if( $("#layer-password_confirm").size() > 0 ){
+		popOpen($("#layer-password_confirm"))
+	}
+
+	// cart_paymentinfo
+	$(document).on("click" , ".cart_paymentinfo .ic_delete" , function(e){
+		$(this).parent("li").remove();
+		e.preventDefault();
+	});
+
+	//O2O checked
+	var o2oContent 			= $("#layer-o2oproduct");
+	var o2oAllCheckBox 		=  o2oContent.find("#all_check");
+	var o2oEachCheckBox 	=  $(".o2o_product .tit input[type='checkbox']").not(":disabled");
+	var o2oEachCheckBoxSize = o2oEachCheckBox.size();
+
+	o2oAllCheckBox.on({
+		"change" : function(){
+			if( $(this).prop("checked") == true ){
+				o2oEachCheckBox.prop("checked" , true);
+
+				o2oContent.find(".o2o_product .payment_info").each(function(){
+					$(this).find(".place_select span:eq(0) input[type='radio']").prop("checked", true);
+				});
+
+			} else {
+				o2oEachCheckBox.prop("checked" , false);
+				o2oContent.find(".o2o_product .payment_info").each(function(){
+					$(this).find(".place_select span:eq(1) input[type='radio']").prop("checked", true);
+				});
+			}
+		}
+	});
+
+	o2oEachCheckBox.on({
+		"change" : function(){
+			var _this = $(this);
+
+			if( o2oEachCheckBox.filter(":checked").size() == o2oEachCheckBoxSize ){
+				o2oAllCheckBox.prop("checked" , true);
+			} else {
+				o2oAllCheckBox.prop("checked" , false);
+			}
+
+			if( _this.prop("checked") == true ){
+				_this.parents(".o2o_product").find(".payment_info").each(function(){
+					$(this).find(".place_select span:eq(0) input[type='radio']").prop("checked", true);
+				});
+			} else {
+				_this.parents(".o2o_product").find(".payment_info").each(function(){
+					$(this).find(".place_select span:eq(1) input[type='radio']").prop("checked", true);
+				});
+			}
+		}
+	});
+
+	o2oContent.find(".o2o_product").each(function(){
+		var _this = $(this);
+		_this.find("input[type='radio']").on({
+			"change" : function(){
+				var listSize 	= _this.find(".payment_info").size();
+				var checked1 	= 0;
+				var checked2 	= 0;
+				var allChecked 	= 0;
+
+				_this.find(".payment_info").each(function(){
+					if( $(this).find(".place_select span").eq(1).find("input[type='radio']").prop("checked") == true ){
+						checked1++;
+					}
+					if( $(this).find(".place_select span").eq(0).find("input[type='radio']").prop("checked") == true ){
+						checked2++;
+					}
+				});
+				if( checked1 > 0 ){
+					_this.find(".tit input[type='checkbox']").prop("checked" , false);
+					o2oAllCheckBox.prop("checked" , false);
+				}
+
+				if( checked2 == listSize ){
+					_this.find(".tit input[type='checkbox']").prop("checked" , true);
+
+					o2oEachCheckBox.each(function(){
+						if( $(this).prop("checked") == false ){
+							allChecked ++;
+						}
+					});
+					if( allChecked == 0 ){
+						o2oAllCheckBox.prop("checked" , true);
+					}
+				}
+			}
+		});
+	});
+
+
+	// 경유지 선택
+	var cartPaymentInfo = $(".payment_info");
+	var viaArea = cartPaymentInfo.find(".space");
+
+	cartPaymentInfo.find("#airport").on({
+		"change" : function(){
+			var val = $(this).val();
+
+			// 2022-06-09 : 역직구 출국지 선택 시 출국정보영역 미노출
+			$(this).closest('tr').siblings('tr').show();
+			$(this).closest('.cont').find('.chk_box, .circle_list').show();
+			$(this).closest('.cont').find('.privacy_agree').hide();
+
+			if( val == "P" || val == "U" || val == "I" ){
+				viaArea.find(".radio_list li:eq(0) input[type='radio']").prop({"checked" : true, "disabled" : true });
+				viaArea.find(".radio_list li:eq(1) input[type='radio']").prop("disabled" , true);
+				viaArea.find("select").hide();
+			}
+
+			// 2022-06-09 : 역직구 출국지 선택 시 출국정보영역 미노출
+			else if ( val == 'CS' ) {
+				$(this).closest('tr').siblings('tr').hide();
+				$(this).closest('table').nextAll().hide();
+				$(this).closest('.cont').find('.privacy_agree').show();
+			}
+
+			else if ( val == "" ){
+				viaArea.find(".radio_list li:eq(0) input[type='radio']").prop({"checked" : false, "disabled" : true });
+				viaArea.find(".radio_list li:eq(1) input[type='radio']").prop({"checked" : false, "disabled" : true });
+				viaArea.find("select option:eq(0)").prop("selected" , true);
+				viaArea.find("select").hide();
+			}
+			else {
+				viaArea.find(".radio_list li:eq(0) input[type='radio']").prop({"checked" : true, "disabled" : false });
+				viaArea.find(".radio_list li:eq(1) input[type='radio']").prop("disabled" , false);
+				viaArea.find("select option:eq(0)").prop("selected" , true);
+			}
+
+			paymentSelectPlaceGuideTextShow();
+		}
+	});
+
+	viaArea.find(".radio_list input[type='radio']").on({
+		"change" : function(){
+
+			paymentSelectPlaceGuideTextShow();
+
+			if( viaArea.find(".radio_list input[type='radio']:checked").parents("li").index() == 0 ){
+				viaArea.find("select").hide().find("option:eq(0)").prop("selected" , true);
+			} else {
+				viaArea.find("select").show();
+				alert("携带液体类或凝胶类等个人物品请准备透明塑料袋，\n若想确认更详细的信息，请查阅机内限制携带物品清单。")
+			}
+		}
+	});
+
+	viaArea.find("select").on({
+		"change" : function(){
+			var val = $(this).val();
+
+			if ( val == 2 || val == 8 ){
+				alert("最终目的地为美国、澳大利亚的情况下，不可购买液体类、凝胶类商品。\n 请再次确认所订购的商品。");
+			}
+			else if ( val == 10 ){
+				alert("以托运方式处理可购买液体类、凝胶类产品");
+			}
+			else if ( val == 30 ){
+				alert("如果经过北京首都国际机场的话，超过100ml的液体类商品禁止带进机内。\n购买液体类商品时，一定要托运小件行李。");
+			}
+			else if ( val == 31 ){
+			}
+			else {
+				alert("不可购买液体类、凝胶类商品。\n 请再次确认所订购的商品");
+			}
+		}
+	});
+
+	// cart list option
+	cartListOptionCheck();
+
+});
+/* end : cart */
+
+
+/* my page */
+$(function(){
+	$(".table_tbody").find("#nationality").on({
+		"change" : function(){
+			if( $(this).find("option:selected").text() == "中国" ){
+				$(".table_tbody").find("#address").show();
+			} else {
+				$(".table_tbody").find("#address").hide();
+			}
+		}
+	});
+
+	// push alert
+	$(".push_btn").each(function(){
+		var touchstartX,touchendX,touches,direction;
+		$(this).find("a").on({
+			"touchstart" : function(event){
+				if (event.originalEvent !== undefined && event.originalEvent.touches !== undefined) {
+					touches = event.originalEvent.touches[0];
+				}
+				touchstartX = touches.clientX;
+				event.preventDefault();
+			},
+			"touchmove" : function(event){
+				if (event.originalEvent !== undefined && event.originalEvent.touches !== undefined) {
+					touches = event.originalEvent.touches[0];
+				}
+				touchendX = touches.clientX;
+			},
+			"touchend" : function(event){
+				if( touchstartX > touchendX ){
+					direction = "left";
+					$(this).removeClass("on");
+				} else {
+					direction = "right";
+					$(this).addClass("on");
+				}
+				event.preventDefault();
+			}
+		});
+	});
+
+	// brand search
+	$(".brand_all").each(function(){
+		var _this = $(this);
+		_this.find("div[data-sort-target]").each(function(i){
+			if(! $(this).children().length ){
+				_this.find(".consonant_wrap a").eq(i+1).addClass("disable");
+			}
+		});
+
+		_this.find(".consonant_wrap a").on({
+			"click" : function(e){
+				if(! $(this).hasClass("disable") ){
+					var data = $(this).index();
+
+					/* 2020-03-18 스페셜오더 중국몰 - 픽스다인 */
+					if ($(this).closest('.cs_special_order').length > 0) {
+						data++;
+					}
+					/* // 2020-03-18 스페셜오더 중국몰 - 픽스다인 */
+
+					if( $(this).hasClass("all") ){
+						_this.find(".all_tit").show();
+						_this.find("div[data-sort-target]").show().find(">p").hide();
+					} else {
+						_this.find(".all_tit").hide();
+						_this.find("div[data-sort-target]").hide();
+						_this.find("div[data-sort-target='"+data+"']").show().find(">p").show();
+					}
+
+					_this.find(".consonant_wrap a").removeClass("on");
+					$(this).addClass("on");
+				}
+				e.preventDefault();
+			}
+		});
+	});
+
+	// my shopping price font-size ctrl
+	$(".my_main .my_shopping ul li > a span").each(function(){
+		var _this = $(this);
+		var thisNum = _this.text().replace(/[^0-9]/g, "");
+
+		if( thisNum.length > 6 ){
+			_this.addClass( "moreNum" );
+		}
+	});
+
+});
+/* end : my page */
+
+
+/* customer */
+$(function(){
+	function selecthtml(data){
+		var select_html = "";
+		for(var i in data){
+			select_html = select_html+"<option value=''>"+data[i]+"</option>";
+		}
+		return select_html;
+	}
+
+	$(document).on("change", ".csform_type1", function(){
+		var text = $(this).find("option:selected").text();
+		var data = new Array();
+		if(text === "会员"){
+			data = ["个人信息","出境信息","护照信息","会员信息"];
+			$(".csform_type2").html("<option value='' selected='selected'>选择</option>"+selecthtml(data)).show();
+		}
+		else if(text === "商品"){
+			data = ["商品咨询","订购/结帐","退款/取消"];
+			$(".csform_type2").html("<option value='' selected='selected'>选择</option>"+selecthtml(data)).show();
+		}
+		else if(text === "服务"){
+			data = ["礼品/代金券","交换券/优惠券","活动/婚礼店","积分金钱"];
+			$(".csform_type2").html("<option value='' selected='selected'>选择</option>"+selecthtml(data)).show();
+		}
+		else if(text === "咨询使用"){
+			data = ["使用免税店/咨询购物","咨询商品取货处"];
+			$(".csform_type2").html("<option value='' selected='selected'>选择</option>"+selecthtml(data)).show();
+		}
+		else{
+			$(".csform_type2").html("<option value='' selected='selected'>选择</option>").hide();
+			$(".csform_type3").html("<option value='' selected='selected'>选择</option>").hide();
+		}
+	});
+	$(document).on("change",".csform_type2",function(){
+		var text = $(this).find("option:selected").text();
+		var data = new Array();
+		switch(text){
+			case "个人信息":
+				data = ["ID密码","海外韩侨","会员注销"];
+			break;
+			case "出境信息":
+				data = ["出境时间","航班号","出境地点","抵达地点"];
+			break;
+			case "护照信息":
+				data = ["护照姓名","护照号码"];
+			break;
+			case "会员信息":
+				data = ["会员卡办理","重办会员卡","会员等级","会员优惠"];
+			break;
+			case "商品咨询":
+				data = ["商品库存","商品再入库","商品状态","商品品牌","商品交换","商品保修","商品购买"];
+			break;
+			case "订购/结帐":
+				data = ["订购","确认订购时间","信用卡结帐"];
+			break;
+			case "退款/取消":
+				data = ["出境取消","商品未领取","因重新购买而取消订购","信用卡取消/退款","订购取消"];
+			break;
+			case "礼品/代金券":
+				data = ["咨询礼品","咨询代金券"];
+			break;
+			case "交换券/优惠券":
+				data = ["再次打印交换券","优惠券使用"];
+			break;
+			case "活动/婚礼店":
+				data = ["活动咨询","公布活动中奖者","与卡公司合作活动","婚礼店咨询","婚礼店请帖登记"];
+			break;
+			case "积分金钱":
+				data = ["积分金钱使用","积分金钱取消","可转换为商品券的积分金钱"];
+			break;
+		}
+		$(".csform_type3").html("<option value='' selected='selected'>选择</option>"+selecthtml(data)).show();
+		if(text === "使用免税店/咨询购物" || text === "咨询商品取货处" ){
+			$(".csform_type3").html("<option value='' selected='selected'>选择</option>").hide();
+		}
+	});
+});
+/* end : customer */
+
+
+/* member */
+$(function(){
+	// 정회원 전환 팝업
+	var _switchMember 			= $("*[data-switch-member]");
+	var _presonalArea			= _switchMember.filter(".addition_change");
+	var _choiceArea	 			= _switchMember.find(".disable_box");
+	var _choiceAreaMaskLayer	= _choiceArea.find(".disable");
+	var interestedBrandId 		= [];
+
+	allCheckLinkage = function(target){
+		if( target.prop("checked") == true ){
+			if( target.parents("[data-switch-member]").size() > 0 ){
+				_choiceAreaMaskLayer.removeClass("disable");
+			}
+		} else {
+			if( target.parents("[data-switch-member]").size() > 0 ){
+				_choiceAreaMaskLayer.addClass("disable");
+				switchMemberChoiceAreaReset();
+			}
+		}
+	}
+
+	function switchMemberChoiceAreaReset(){
+		_choiceArea.find("select").find("option:eq(0)").prop("selected" , true);
+		_choiceArea.find("input[type='text']").val("");
+		_choiceArea.find("input[type='number']").val("");
+		_choiceArea.find("input[type='tel']").val("");
+		_choiceArea.find("input[type='date']").val("");
+		_choiceArea.find("input[type='radio']").prop("checked" , false);
+		_choiceArea.find("input[type='checkbox']").prop("checked" , false);
+		_choiceArea.find(".brand_choice").empty();
+		$(".interested_choice").each(function(i){
+			interestedBrandId[i] = [];
+		});
+	}
+
+	if( _presonalArea.find("#agree_optional").prop("checked") == true ){
+		_choiceAreaMaskLayer.removeClass("disable");
+	} else {
+		_choiceAreaMaskLayer.addClass("disable");
+	}
+
+	_switchMember.find("#agree_optional").on({
+		"change" : function(){
+			var _this = $(this);
+			if( _this.prop("checked") == true ){
+				_choiceAreaMaskLayer.removeClass("disable");
+			} else {
+				_choiceAreaMaskLayer.addClass("disable");
+
+//				if(_presonalArea.length){
+//					if( confirm("您若取消勾选个人（选择）信息收集同意书，您所填写的附加信息内容将被删除。\n确定要取消勾选个人（选择）信息收集同意书吗?") ){
+//						_choiceAreaMaskLayer.addClass("disable");
+//						switchMemberChoiceAreaReset();
+//						alert("您已取消同意个人（选择）信息收集同意书。");
+//					} else {
+//						_this.prop("checked", true);
+//					}
+//				} else {
+//					_choiceAreaMaskLayer.addClass("disable");
+//					switchMemberChoiceAreaReset();
+//				}
+			}
+		}
+	});
+
+	//관심 브랜드 선택
+	$(".interested_choice").each(function(i){
+		var _this 				= $(this);
+		var select				= _this.find("*[data-select]");
+		var selectEventTarget 	= select.attr("data-select");
+		var selectAppendTarget  = _this.find("*[data-append-target='"+selectEventTarget+"']");
+		var size 				= selectAppendTarget.children().size();
+		var sizeVar;
+
+		if( selectEventTarget == "interested-brand" ){
+			sizeVar = 3;
+		}
+		else if( selectEventTarget == "interested-category" ){
+			sizeVar = 6;
+		}
+
+		interestedBrandId[i]	= [];
+
+		select.on({
+			"change" : function() {
+				size 			= selectAppendTarget.children().size();
+				var brandTxt 	= select.find("option:selected").text();
+				var brandVal 	= select.find("option:selected").val();
+
+				if ( select.find("option:selected").index() != 0  && $.inArray( brandVal, interestedBrandId[i] ) == -1 && size < sizeVar  ) {
+
+					interestedBrandId[i].push(brandVal);
+
+					selectAppendTarget.append("<a href='#'><span>" + brandTxt + "</span><input type='text' style='display:none' value='" + brandVal + "'/></a>");
+					size++;
+
+					selectAppendTarget.find("a").off("click").on({
+						"click": function (e) {
+							remove($(this));
+							e.preventDefault();
+						}
+					});
+				} else if ( size >= sizeVar ){
+					if( selectEventTarget == "interested-brand" ){
+						alert("可选择最多"+sizeVar+"个喜爱的品牌");
+					} else if ( selectEventTarget == "interested-category" ){
+						alert("可选择最多"+sizeVar+"个商品类别");
+					}
+				} else if ( $.inArray( brandVal, interestedBrandId[i] ) != -1 ){
+					if( selectEventTarget == "interested-brand" ){
+						alert("这是已经选过的品牌");
+					}
+				}
+			}
+		});
+
+		selectAppendTarget.find("a").on({
+			"click" : function(e){
+				remove($(this));
+				e.preventDefault();
+			}
+		});
+
+		function remove(target){
+			var selectVal = target.find("input").val();
+			interestedBrandId[i][$.inArray(selectVal,interestedBrandId[i])] = null;
+			target.remove();
+			size --;
+		}
+	});
+
+	// input delete button
+	$(".input_delete").each(function(){
+		var _this = $(this);
+		_this.find("a").on({
+			"click" : function(e){
+				_this.find("input[type='text']").val("");
+				e.preventDefault();
+			}
+		});
+	});
+
+});
+/* end : member */
+
+
+
+/* accordion */
+$.fn.accordion = function(options){
+	var self = this;
+	var _setting = options;
+	var _default = {
+		accordionElement : ".btn-accordion",
+		accordionDetail : ".accordion-detail",
+		activeElement : ":on",
+		activeIndex : 0,
+		slideType : 0,
+		defaultType : 0
+	}
+
+	self.option = $.extend(_default, _setting);
+
+	var activeElem = self.option.activeElement.split(":")[0];
+	var activeClass = self.option.activeElement.split(":")[1];
+	var elem = self.option.accordionElement;
+	var detail = self.option.accordionDetail;
+	var slideType = self.option.slideType;
+	var defaultType = self.option.defaultType;
+	var idx = self.option.activeIndex;
+
+	function init(){
+		build();
+
+		self.find(elem).find("a").off("click").on({
+			"click": function(e){
+				action(this);
+				e.preventDefault();
+			}
+		});
+	}
+
+	function build(){
+		//reset
+		self.find(detail).hide();
+		if(defaultType == 0){
+			self.find(elem).eq(idx).nextAll(detail).filter(':first').show();
+
+			if(activeElem == "a"){
+				self.find(elem).eq(idx).find("a").addClass(activeClass);
+			} else {
+				self.find(elem).eq(idx).addClass(activeClass);
+			}
+		}
+	}
+
+	function action(target){
+		var $parent = $(target).parent(elem);
+		if($parent.nextAll(detail).filter(':first').is(":visible")){
+			$parent.nextAll(detail).filter(':first').slideUp(function(){
+				$(window).trigger("resize");
+			});
+			if(activeElem == "a"){
+				$(target).removeClass(activeClass);
+			} else {
+				$parent.removeClass(activeClass);
+			}
+		} else {
+
+			/* 2016-09-27 속도개선 */
+			$parent.nextAll(detail).filter(':first').find(".acdn_lazy").each(function(){
+				$(this).attr("src",$(this).attr("data-acdn")).end().removeAttr("data-acdn");
+			});
+			/* 2016-09-27 속도개선 - e */
+
+			if(slideType == 0){
+				self.find(detail).slideUp(function(){
+					$(window).trigger("resize");
+				});
+			}
+			$parent.nextAll(detail).filter(':first').slideDown(function(){
+				$(window).trigger("resize");
+			});
+			if(activeElem == "a"){
+				if(slideType == 0){
+					self.find(elem).find("a").removeClass(activeClass);
+				}
+				$(target).addClass(activeClass);
+			} else {
+				if(slideType == 0){
+					self.find(elem).removeClass(activeClass);
+				}
+				$parent.addClass(activeClass);
+			}
+		}
+	}
+	init();
+}
+
+/* tab menu */
+$.fn.tabpannel = function(options){
+	//var self = this;
+
+	this.each(function(){
+
+		var self = $(this);
+
+		var _setting = options;
+		var _default = {
+			tabMenu : ".tab_menu",
+			tabDetail : ".tab_detail",
+			activeElement : ":on",
+			activeIndex : 0
+		}
+
+		self.option = $.extend(_default, _setting);
+
+		var activeElm = self.option.activeElement.split(":")[0];
+		var activeClass = self.option.activeElement.split(":")[1];
+		var elem = self.option.tabMenu;
+		var detail = self.option.tabDetail;
+		var idx = self.option.activeIndex;
+
+		function init(){
+			build();
+
+			self.find(elem).find("a").on("click",function(e){
+				action(this);
+				$(window).resize();/*2016-10-26*/
+				e.preventDefault();
+			})
+		}
+
+		function build(){
+			//reset
+			self.find(detail).hide();
+			self.find(detail).eq(idx).show();
+
+			/* 2016-10-13 속도개선 : 탭 커스텀 레이지 적용 */
+			var firstOne = self.find(detail).eq(idx);
+			if(self.find(".tabSlideAuto").length){
+				// 속도개선 : 위에 슬라이드 있을 경우 예외 처리
+			}else if(!!firstOne.offset()) {	// 2016-10-17
+				if(firstOne.offset().top < $(window).scrollTop() + $(window).height() &&
+				firstOne.offset().top + firstOne.height() > $(window).scrollTop()){
+					firstOne.find("img.customLazy").each(function(){
+						$(this).attr("src",$(this).attr("data-imgsrc"));
+					});
+				}else{
+					var winScrollBuildTab = function(){
+						if(firstOne.offset().top < $(window).scrollTop() + $(window).height() &&
+						firstOne.offset().top + firstOne.height() > $(window).scrollTop()){
+							firstOne.find("img.customLazy").each(function(){
+								$(this).attr("src",$(this).attr("data-imgsrc"));
+							});
+							$(window).unbind("scroll",winScrollBuildTab);
+						}
+					};
+
+					$(window).bind("scroll",winScrollBuildTab);
+				}
+			}
+			/* 2016-10-13 속도개선 : 탭 커스텀 레이지 적용 - e */
+
+			if(activeElm == "a"){
+				self.find(elem).children().find("a").removeClass(activeClass);
+				if(self.find(elem).children().length > 1){
+					self.find(elem).children().eq(idx).find("a").addClass(activeClass);
+				} else {
+					self.find(elem).children().children().eq(idx).find("a").addClass(activeClass);
+				}
+			} else {
+				self.find(elem).children().removeClass(activeClass);
+				self.find(elem).children().eq(idx).addClass(activeClass);
+			}
+		}
+
+		function action(target){
+			var $parent = $(target).parent();
+			var idx = $parent.index();
+			self.find(detail).hide();
+			self.find(detail).eq(idx).show();
+
+			/* 2016-10-13 속도개선 : 탭 커스텀 레이지 적용 */
+			self.find(detail).eq(idx).find("img.customLazy").each(function(){
+				$(this).attr("src",$(this).attr("data-imgsrc"));
+			});
+			/* 2016-10-13 속도개선 : 탭 커스텀 레이지 적용 - e */
+
+
+			if(activeElm == "a"){
+				$parent.parent().find("a").removeClass(activeClass);
+				$(target).addClass(activeClass)
+			} else {
+				$parent.siblings().removeClass(activeClass);
+				$parent.addClass(activeClass)
+			}
+
+			slickReset(idx);
+		}
+
+		function slickReset(idx){
+			var slickAuto = $(".slideAuto");
+			var slickManual = $(".slideManual");
+
+			if(self.find(detail).eq(idx).find($(productImgArr)).length){
+				productSwipeArrow(self.find(detail).eq(idx).find($(productImgArr)))
+			}
+
+			if(self.find(detail).eq(idx).find(slickAuto).length){
+				self.find(detail).eq(idx).find(slickAuto).slick("unslick");
+				slideAuto(self.find(detail).eq(idx).find(slickAuto));
+			}
+
+			if(self.find(detail).eq(idx).find(slickManual).length){
+				self.find(detail).eq(idx).find(slickManual).slick("unslick");
+				slideManual(self.find(detail).eq(idx).find(slickManual));
+			}
+		}
+		init();
+	});
+}
+
+
+//footer catagory/brand layer
+var footerMenu = {
+
+	setting : {
+		navi			: $(".nav_menu"),
+		layerCont		: $(".layer_menu"),
+		categoryBtn 	: $(".btn_category_menu"),
+		categoryCont	: $(".layer_menu.category"),
+		brandBtn		: $(".btn_brand_menu"),
+		brandCont		: $(".layer_menu.brand")
+	},
+
+	init : function(){
+		this.layerToggle();
+		this.layerClose();
+		this.menubarToggle();
+		this.catagoryAsideMenu();
+		this.categoryAccordion();
+		this.brandTab();
+
+		// app
+		$(".footer_nav.app").find(".nav_menu > ul > li").eq(4).find("a").on({
+			"click" : function(e){
+				var appWrap =  $(this).parents(".app")
+				if( appWrap.hasClass("off") ){
+					appWrap.removeClass("off");
+				}
+				e.preventDefault();
+			}
+		});
+
+		$(".footer_nav.app .expanded_menu .head_btn > a").on({
+			"click" : function(e){
+				$(".footer_nav.app").addClass("off").find(".nav_menu > ul > li:eq(4)").removeClass("on");
+				e.preventDefault();
+			}
+		});
+	},
+
+	layerToggle : function(){
+		footerMenu.setting.categoryBtn.on({
+			"click" : function(e){
+				e.preventDefault();
+				location.href = contextPath + '/category';
+			}
+		});
+
+		footerMenu.setting.brandBtn.on({
+			"click" : function(e){
+				footerMenu.brandOpen();
+				e.preventDefault();
+			}
+		});
+	},
+
+	layerClose : function(){
+		footerMenu.setting.layerCont.find(".close").on({
+			"click" : function(e){
+				$(this).parents(".layer_menu").removeClass("on");
+				winScrollDisable(true);
+				bodyScrollStart();
+				e.preventDefault();
+			}
+		});
+	},
+
+	categoryOpen : function(){
+		$(".layer_menu").removeClass("on");
+		footerMenu.setting.categoryCont.addClass("on");
+		bodyScrollStop();
+		winScrollDisable(false);
+		footerMenu.layerResize();
+	},
+
+	brandOpen : function(){
+		$(".layer_menu").removeClass("on");
+		$(".total_menu").hide();
+		$(".dimmed").removeClass("navOn on");
+		$("#header").removeClass("open");
+		footerMenu.setting.brandCont.addClass("on");
+		bodyScrollStop();
+		winScrollDisable(false);
+		footerMenu.layerResize();
+	},
+
+	menubarToggle : function(){
+		footerMenu.setting.navi.find("li > a").on({
+			"click" : function(e){
+				if( $(this).attr("href") == "#" || $(this).attr("href") == "" || $(this).attr("href") == undefined ){
+					e.preventDefault();
+				}
+				footerMenu.setting.navi.find("li").removeClass("on");
+				$(this).closest("li").addClass("on");
+				$(".footer_nav.app").addClass("off");
+			}
+		});
+	},
+
+	catagoryAsideMenu : function(){
+		footerMenu.setting.categoryCont.find(".depth01 > a").each(function(){
+			var _this = $(this);
+
+			_this.on({
+				"click" : function(e){
+					footerMenu.setting.categoryCont.find(".list").addClass("open");
+					footerMenu.setting.categoryCont.find(".category_list > li.on").removeClass("on");
+					_this.parent().parent().addClass("on")
+					e.preventDefault();
+				}
+			});
+		});
+	},
+
+	layerResize : function(){
+		footerMenu.setting.layerCont.each(function(){
+			var _this = $(this);
+			var winH 	= $(window).height();
+			var headerH = _this.find(".tit").height();
+			_this.find(".list").height(winH-headerH);
+
+			$(window).resize(function(){
+				winH 	= $(window).height();
+				headerH = _this.find(".tit").height();
+				_this.find(".list").height(winH-headerH);
+			});
+		});
+	},
+
+	categoryAccordion : function(){
+		var accMenu = footerMenu.setting.categoryCont.find(".category_list > li .depth02");
+
+		accMenu.each(function() {
+			var _this = $(this);
+
+			_this.find("ul li").removeClass("on");
+
+			_this.find("ul li > a").on({
+				"click": function (e) {
+					if ($(this).next().size() > 0) {
+						if( $(this).parent().hasClass("active") ){
+							$(this).parent().removeClass("on active").find("ul").slideUp();
+							$(this).parent().find("li").removeClass("on active");
+						} else {
+							$(this).parent().find("li").removeClass("on active");
+							$(this).parent().siblings().removeClass("on active").find("ul").slideUp();
+							$(this).parent().addClass("on active").find(">ul").slideDown();
+						}
+						e.preventDefault();
+					}
+				}
+			});
+		});
+	},
+
+	brandTab : function(){
+		var  tabMenu = footerMenu.setting.brandCont.find(".tab_area");
+		tabMenu.find(".tit_tab > li > a").on({
+			"click" : function(e){
+				var idx = $(this).parent().index();
+				if(! $(this).parent().hasClass("on") ){
+					tabMenu.find(".tit_tab > li").removeClass("on");
+					$(this).parent().addClass("on");
+					tabMenu.find("> div").hide().eq(idx).show();
+				}
+				e.preventDefault();
+			}
+		});
+
+		footerMenu.setting.brandCont.find(".choice_brand").each(function(){
+			var _this = $(this);
+
+			_this.find(".sort_tit > a").on({
+				"click" : function(e){
+
+					if( _this.hasClass("on") ){
+						_this.removeClass("on");
+						_this.find(".sort_btn").slideUp("fast");
+					} else {
+						_this.addClass("on");
+						_this.find(".sort_btn").slideDown("fast");
+					}
+
+					e.preventDefault();
+				}
+			});
+
+			_this.find(".sort_btn a").on({
+				"click": function (e) {
+					if( $(this).parents("li").hasClass("on") || $(this).parents("li").hasClass("disabled") ){
+
+					} else {
+						var dataEvent = $(this).parents("li").attr("data-sort-event");
+						var sortTxt =  $(this).text();
+						_this.removeClass("on");
+						_this.find(".sort_tit a span").text(sortTxt);
+						_this.find(".sort_btn").slideUp("fast");
+						_this.find(".sort_choice > li").removeClass("on");
+						$(this).parents("li").addClass("on");
+						_this.next(".sort_result").find(">div").hide();
+						_this.next(".sort_result").find(">div[data-sort-target='"+dataEvent+"']").show();
+					}
+					e.preventDefault();
+				}
+			});
+		});
+	}
+}
+
+/* 기혼, 미혼 */
+$(function(){
+	$("[data-radio-married]").each(function(){
+		var _this = $(this);
+		var target = _this.data("radioMarried");
+		_this.on({
+			"change" : function(){
+				$("[data-receive-target='"+ target +"']").prop({ "disabled" : false });
+			}
+		});
+	});
+
+	$("[data-radio-single]").each(function(){
+		var _this = $(this);
+		var target = _this.data("radioSingle");
+		_this.on({
+			"change" : function(){
+				$("[data-receive-target='"+ target +"']").prop({ "disabled" : true, "value" : null });
+			}
+		});
+	});
+});
+
+/* 한국관 슬라이드 이미지 크기 조정 */
+$(function() {
+	if ( $('.korean_wrap').size() === 0 ) return false;
+	$(window).on('resize', function() {
+		var $tgWrap = $('.marketing_banner_wrap'),
+			tgWrapHeight = $tgWrap.outerHeight(),
+			$tgImg = $tgWrap.find('.bg_img img');
+		$tgImg.height(tgWrapHeight);
+	}).trigger('resize');
+});
+
+
+/* promotion script */
+var _nsmart = _nsmart
+|| [];_nsmart.host = _nsmart.host
+|| (('https:' == document.location.protocol) ? 'https://' : 'http://');
+document.write(unescape("%3Cscript type='text/javascript'%3E%3C/script%3E"));
+
+
+
+
+function setAlliancePromotion(campainId,pageId,sellingCampainId,sellingPageId,sellingCampainId2,sellingPageId2,brandCode,startDate,endDate,products){
+
+	var date = startDate; /// 문자열 or  숫자 데이터
+	var year = date.substr(0,4);
+	var month = date.substr(4,2);
+	var day = date.substr(6,2);
+	var hour = date.substr(8,2);
+	var min =  date.substr(10,2);
+	var sec =  date.substr(12,2);
+	var start_date = new Date(year, month-1, day,hour ,min,sec,0 );  // date로 변경
+
+
+
+	var date2 = endDate; /// 문자열 or  숫자 데이터
+	var year2 = date2.substr(0,4);
+	var month2 = date2.substr(4,2);
+	var day2 = date2.substr(6,2);
+	var hour2 = date2.substr(8,2);
+	var min2 =  date2.substr(10,2);
+	var sec2 =  date2.substr(12,2);
+	var end_date = new Date(year2, month2-1, day2,hour2 ,min2,sec2,0 );  // date로 변경
+
+	var curDate= new Date();
+
+
+	if(curDate>start_date){
+		if(curDate<end_date){
+			_nsmart.splice(0,_nsmart.length);
+			_nsmart.push([campainId, pageId]);
+			var s = document.createElement("script");
+		    s.type = "text/javascript";
+		    s.src = "http://n00.nsmartad.com/etc?id=10";
+		    document.getElementsByTagName('head')[0].appendChild(s);
+
+			$.ajax({
+				type : "POST",
+				url : contextPath + "/ex/setAlliancePromotion",
+				data : {
+					campainId : sellingCampainId,
+					pageId : sellingPageId,
+					campainId2 : sellingCampainId2,
+					pageId2 : sellingPageId2,
+					products : products,
+					brandCode : brandCode
+				},
+				dataType : "json",
+				success : function(result) {
+					console.log("estee log success!");
+				},
+				error : function(result) {
+					console.log("estee log Wrong access!");
+				},
+				complete : function(){
+
+				}
+			});
+		}
+	}
+}
+
+function inputDetailfromAlliance(campainId,pageId,startDate,endDate){
+
+	callbackFn = function() {};
+
+	var date = startDate; /// 문자열 or  숫자 데이터
+	var year = date.substr(0,4);
+	var month = date.substr(4,2);
+	var day = date.substr(6,2);
+	var hour = date.substr(8,2);
+	var min =  date.substr(10,2);
+	var sec =  date.substr(12,2);
+	var start_date = new Date(year, month-1, day,hour ,min,sec,0 );  // date로 변경
+
+
+
+	var date2 = endDate; /// 문자열 or  숫자 데이터
+	var year2 = date2.substr(0,4);
+	var month2 = date2.substr(4,2);
+	var day2 = date2.substr(6,2);
+	var hour2 = date2.substr(8,2);
+	var min2 =  date2.substr(10,2);
+	var sec2 =  date2.substr(12,2);
+	var end_date = new Date(year2, month2-1, day2,hour2 ,min2,sec2,0 );  // date로 변경
+
+	var curDate= new Date();
+
+	if(curDate>start_date){
+		if(curDate<end_date){
+			NTrackObj.callTrackTag(pageId, callbackFn, campainId);
+		}
+	}
+}
+
+function isSellingAlliancePromotion(products,brandCodes){
+			$.ajax({
+				type : "POST",
+				url : contextPath + "/ex/isSellingAlliancePromotion",
+				data : {
+					products : products,
+					brandCodes : brandCodes
+				},
+				dataType : "json",
+				success : function(result) {
+					console.log("estee log success!");
+
+					var campainId = null;
+					var pageId = null;
+
+					if(result!=null){
+						if(result.campainId!=null && result.campainId!=""){
+							campainId = result.campainId;
+						}
+						if( result.pageId!=null &&  result.pageId!=""){
+							pageId =  result.pageId;
+						}
+
+					}
+
+
+
+
+
+					if(campainId!=null && pageId!=null){
+						_nsmart.splice(0,_nsmart.length);
+
+						for(var i=0;i<campainId.length;i++){
+							_nsmart.push([campainId[i], pageId[i]]);
+						}
+
+						var s = document.createElement("script");
+					    s.type = "text/javascript";
+					    s.src = "https://n00.nsmartad.com/etc?id=10";
+					    document.getElementsByTagName('head')[0].appendChild(s);
+					}
+				},
+				error : function(result) {
+					console.log("estee log Wrong access!");
+				},
+				complete : function(){
+
+				}
+			});
+
+}
+/*20160830  리스트화면 UI개선 */
+$(function(){
+	$('.breadcrumb span').on('click', function(e) {
+		if($('i.ico:first-child', this).size()==0) {return;}
+		if(!$(this).parents('#wrap').hasClass('cateLayer')){
+			$(this).parents('#wrap').addClass('cateLayer');
+			$('.facet-view-toggle.on').trigger('click');
+			$('.ic_toggle.on').trigger('click'); // 2017.08.17 Search UIUX Improvement
+			$(mask).attr('class','new_dimmed');
+			setTimeout(function(){
+				var brd_list_height = $('.breadcrumb_list').height();
+				$('.breadcrumb_list').addClass('on').css('bottom','-'+brd_list_height+'px');
+			},0);
+		}else{
+			//$('.breadcrumb_closed span').trigger('click');
+			$('.breadcrumb_list').removeClass('on').css('bottom','0px');
+			setTimeout(function(){
+				$('.breadcrumb_closed span').trigger('click');
+			},300);
+		}
+		e.preventDefault();
+	});
+	$(document).on('click', '.breadcrumb_closed span, .new_dimmed', function(e){
+		$('.new_dimmed').attr('class','dimmed')
+		$('#wrap').removeClass('cateLayer');
+		e.preventDefault();
+	 });
+});
+
+
+
+/* 2016-10-07 재입고알림 */
+$( document ).ready(function() {
+
+	/* 20161214 재입고 수정 */
+	$(".toggleView").click(function(e){
+		e.preventDefault();
+		$(this).toggleClass("open").next(".toggleViewCont").toggle();
+	});
+	/* // 20161214 재입고 수정 */
+
+	/* 2016-02-06 링크 실행 중 스피너 추가 */
+	if (!navigator.userAgent.match(/iPhone|iPad|iPod/i)) {
+		// 공통영역 - start
+		/* 2017-03-07 : gnb 및 풀다운메뉴 스피너 제거 */
+		//linkSpinner(".gnb .inner .menu");								//gnb메뉴
+		linkSpinner("#header a.btn_total");								//전체메뉴
+		linkSpinner("#header .top_header a");							//상단로고
+
+		/* 2016-02-16 : 스피너 적용 범위 수정 (리앙 김혁민) */
+		//linkSpinner("#header .fullMenuWrap ul li a");							// gnb메뉴 fulldown 리스트
+		linkSpinner("#header .search a.icoSearch");						// 검색버튼
+		linkSpinner("#header .search #search-text-new");				// 검색 인풋박스
+		/* 2016-02-16 : 스피너 적용 범위 수정 (리앙 김혁민) - end */
+
+		linkSpinner(".footer_wrap .footer_menu li a");					//푸터메뉴
+		linkSpinner(".fgnb_sticky.new_sticky li a.krMainSp01");			// 액션바 > 홈
+		linkSpinner(".fgnb_sticky.new_sticky li a.krMainSp03");			// 액션바 > 장바구니
+		linkSpinner(".fgnb_sticky.new_sticky li a.krMainSp04");			// 액션바 > 마이페이지
+		// 공통영역 - end
+
+		// 메인 - start
+		linkSpinner(".main_warp .banner_top a");			//상단 띠배너
+		linkSpinner(".main_warp .visual_top li a");		//메인 비주얼 슬라이더 배너
+		linkSpinner(".main_warp .product_banner a");		//메인 비주얼 배너 아래 상품 리스트
+		linkSpinner(".main_warp .personalBanner a");		//개인추천상품
+		linkSpinner(".main_warp .exhibition_banner a");		//기획전 배너
+		linkSpinner(".main_warp .partneroffers_banner a");	//협력사 배너
+		linkSpinner(".main_warp .koreaBest a");				//코리아 베스트 배너,상품,브랜드
+		linkSpinner(".main_warp .outBest a");				//아웃베스트
+		linkSpinner(".main_warp .newArrival a");			//신상품 배너
+		linkSpinner(".main_warp .giftShop a");				//기프트샵 배너
+		linkSpinner(".main_warp .categoryBest a");			//카테고리 베스트 배너,상품
+		// 메인 - end
+	}
+	/* 2016-02-06 링크 실행 중 스피너 추가 - end */
+
+	loginInputTxtDel(); //MO 로그인화면 페이지 간소화 :리앙
+	themeShopMore(); // 트렌드샵 영역 추가 : 리앙
+});
+
+//2016-11-18 레이지로딩 후속 개선
+$(window).load(function(){
+	windowComplete = true;
+
+	/*if($(".main_warp").length > 0){	// 메인인 경우
+		$('img.lazy').each(function(idx){
+			var _this = $(this);
+			setTimeout(function(){
+				_this.attr("src",_this.attr("data-original"));
+				_this.removeAttr("data-original").removeClass("lazy");
+			},100*(idx%2));
+		});
+		$('img.ajax_lazy').each(function(idx){
+			var _this = $(this);
+			setTimeout(function(){
+				_this.attr("src",_this.attr("data-original"));
+				_this.removeAttr("data-original").removeClass("ajax_lazy");
+			},100*(idx%2));
+		});
+	}*/
+});
+// 2016-11-18 레이지로딩 후속 개선 - e
+
+/* 2016-01-02 링크 실행 중 스피너 추가 */
+function linkSpinner(el){
+	if(el){
+		$(document).on("click", el , function(e){
+			spinner.load("noApp");
+			// shilla.spinner.js 수정
+		});
+	}
+}
+/* 2016-01-02 링크 실행 중 스피너 추가 - end */
+
+// 풀다운메뉴 주소이동
+var moveToUrl = function(obj){
+	var url = obj.href;
+	if ( url && url != "" ){
+		$(obj).parent().parent().find("a").removeClass("on");
+		$(obj).addClass("on");
+		location.href = url;
+	}
+}
+
+var excuteAppOrGoStore = function(appAction) {
+	var scheme = "shilladfscn";
+	var fullUrl = "";
+	var userAgent = navigator.userAgent;
+	var visitedAt = (new Date()).getTime();
+
+	if ( appAction == "showVoiceSearchView" ){
+		if (isApp && userAgent.match(/iPhone|iPad|iPod/i)) {
+			// 앱만 사용하게 하고 스토어 링크는 2차 개발예정
+			fullUrl = scheme + "://" + appAction;
+			location.href = fullUrl;
+			//         }, 0);
+		} else if (isApp && isAllowedVoiceSearch && userAgent.match(/ndroid/i)) {
+
+			// A8
+			if (userAgent.indexOf("SM-A8000") > -1) {
+				scheme += "a8";
+				// NOTE5
+			} else if (userAgent.indexOf("SM-N9200") > -1) {
+				scheme += "note5";
+			}
+
+			fullUrl = scheme + "://" + appAction;
+			location.href = fullUrl;
+		} else {
+			UserAgent.goStoreCnWithAction(appAction);
+		}
+	}else if ( appAction == "showBarcodeSearchView" ){
+		if (isApp && userAgent.match(/iPhone|iPad|iPod/i)) {
+			// 앱만 사용하게 하고 스토어 링크는 2차 개발예정
+			fullUrl = scheme + "://" + appAction;
+			location.href = fullUrl;
+			//         }, 0);
+		} else if (isApp && isAllowedVoiceSearch && userAgent.match(/ndroid/i)) {
+			// A8
+			if (userAgent.indexOf("SM-A8000") > -1) {
+				scheme += "a8";
+				// NOTE5
+			} else if (userAgent.indexOf("SM-N9200") > -1) {
+				scheme += "note5";
+			}
+
+			fullUrl = scheme + "://" + appAction;
+			location.href = fullUrl;
+		} else {
+			UserAgent.goStoreCnWithAction(appAction);
+		}
+	}else if ( appAction == "showAppSettingView" ){
+		if (isApp && userAgent.match(/iPhone|iPad|iPod/i)) {
+			fullUrl = scheme + "://" + appAction;
+			location.href = fullUrl;
+		} else if (isApp && userAgent.match(/ndroid/i)) {
+			fullUrl = scheme + "://" + appAction;
+			location.href = fullUrl;
+		} else {
+			UserAgent.goStoreCnWithAction(appAction);
+		}
+	}
+}
+
+var androidNumber = "9.12.0";
+var iosNumber = "1.15.0";
+
+function mobile_grid_close_call() {
+	// 2017.08.17 Search UIUX Improvement 모바일 환경에서 필터 끌 때 호출
+	try{
+
+		var nomal_location = "shilladfscn://hideFilterLayout";
+		if(isApp) {
+
+			if(isApp){
+				var appurl = "shilladfs://searchDetail?open=N";
+				window.location.href = appurl;
+			}
+
+			$('.dimmed').unbind('touchmove'); // 검색영역 스크롤 풀기
+
+			if ( cmsPageUid == "mobile-shilladfsSearchPage" ||
+					 cmsPageUid == "mobile-shilladfsCnMobileSearchPageForApp" ||
+					 cmsPageUid == "mobile-shilladfsCnMobileSearchResultPageForApp" ||
+					 cmsPageUid == "mobile-shilladfsCnMobileSearchResultEmptyPageForApp"){
+				$(".searchNew").show();
+
+				if (getMobileOperatingSystem().toUpperCase() != 'IOS'){
+					appNumberChk(androidNumber, nomal_location);
+				}
+			}else {
+				if (getMobileOperatingSystem().toUpperCase() == 'IOS'){
+					appNumberChk(iosNumber, nomal_location);
+				}else {
+					appNumberChk(androidNumber, nomal_location);
+				}
+			}
+		}else {
+			if(cmsPageUid != 'mobile-shilladfsCnMobileSearchResultPage'
+				&& cmsPageUid != 'mobile-shilladfsCnMobileSearchResultPageForApp') {
+				$("#header").show();
+			}
+		}
+	}catch(e){
+		console.log(e);
+	}
+}
+
+function mobile_grid_open_call() {
+	// 2017.08.17 Search UIUX Improvement 모바일 환경에서 필터 킬 때 호출
+	try{
+		if(isApp){
+			var appurl = "shilladfs://searchDetail?open=Y";
+			window.location.href = appurl;
+		}
+
+
+		var nomal_location = "shilladfscn://showFilterLayout";
+		if(isApp) {
+
+			$('.dimmed').bind('touchmove', function(e){e.preventDefault()}); // 검색영역 스크롤 막기
+			$('#newSearchFilter').unbind('touchmove');
+
+			if ( cmsPageUid == "mobile-shilladfsSearchPage" ||
+					 cmsPageUid == "mobile-shilladfsCnMobileSearchPageForApp" ||
+					 cmsPageUid == "mobile-shilladfsCnMobileSearchResultPageForApp" ||
+					 cmsPageUid == "mobile-shilladfsCnMobileSearchResultEmptyPageForApp"){
+				$(".searchNew").hide();
+
+				if (getMobileOperatingSystem().toUpperCase() != 'IOS'){
+					appNumberChk(androidNumber, nomal_location);
+				}
+			}else {
+				if (getMobileOperatingSystem().toUpperCase() == 'IOS'){
+					appNumberChk(iosNumber, nomal_location);
+				}else {
+					appNumberChk(androidNumber, nomal_location);
+				}
+			}
+
+		}else {
+			if(cmsPageUid != 'mobile-shilladfsCnMobileSearchResultPage'
+				&& cmsPageUid != 'mobile-shilladfsCnMobileSearchResultPageForApp') {
+				$("#header").hide();
+			}
+		}
+	}catch(e){
+		console.log(e);
+	}
+
+}
+
+function appNumberChk(appCompareNum, nomal_location) {
+	// 2017.08.17 Search UIUX Improvement
+	$.ajax({
+		type : "POST",
+		url : contextPath + "/search/returnappversion",
+		data : {
+			"appCompareNum" : appCompareNum
+		},
+		success : function(result) {
+			if(result == "fine"){
+				location.href = nomal_location;
+			}
+		},
+		error : function(xhr, status, error) {
+			console.log("error log appNumberChk");
+		}
+	});
+}
+
+/* MO 로그인화면 페이지 간소화 : 리앙 [S] */
+function loginInputTxtDel() {
+	var $inputTxtDel = $('.inputTxtDel');
+	$('.login_wrap .input_id > #email_inp').keyup(function(keyon){
+		var $ThisKey = $(this);
+		if ($ThisKey.val() != '') {
+			$inputTxtDel.show();
+			$inputTxtDel.on('click', function(e){
+				var $ThisClick = $(this);
+				$ThisClick.prev('#email_inp').val('');
+				$ThisClick.hide();
+				e.preventDefault();
+			});
+		}
+		if (keyon.keyCode == 8 && $ThisKey.val() == '') {
+			$inputTxtDel.hide();
+		}
+	});
+
+}
+/* MO 로그인화면 페이지 간소화 : 리앙 [S] */
+
+/* 트렌드샵 영역 추가 : 리앙 [S] */
+function themeShopMore(){
+	var $themeBanner = $('.themeBanner');
+	var $themeMore =  $('.themeShop').find('.themeMore');
+//	if($themeBanner.find(' > li').length > 0 ){
+//		$('#themeShop').show();
+//	} else {
+//		$('#themeShop').hide();
+//	}
+	if($themeBanner.find(' > li').length > 0){
+		$('#main_trend').show();
+	} else {
+		$('#main_trend').hide();
+	}
+	if ($themeBanner.find(' > li').length > 5){
+		$themeMore.addClass('active');
+		$themeMore.on('click', function(){
+			var $This = $(this);
+			var $themeFocus = $('#themeShop').offset().top;
+			$This.toggleClass('on')
+			if ($This.hasClass('on')){
+				$themeBanner.css('max-height', '100%');
+			} else {
+				$themeBanner.css('max-height', '134.3vw');
+				$('html, body').scrollTop($themeFocus);
+			}
+		});
+	} else {
+		$themeMore.removeClass('active');
+	}
+}
+/* 트렌드샵 영역 추가 : 리앙 [E] */
+
+function talkPopup (){
+	var fullUrl = "";
+	// KR 안드로이드 모바일 상담톡 앱 URL
+	if (shillaTalkPopupAppVer =="true") {
+		if ($("#isShillaTalkDaigouCustomer").val() == "true") {
+			fullUrl = "shilladfscn://talkPopup?{\"url\" : \"" + $("#talkPopupDaigouUrl").val() + "\", \"param\" : {\"domainAlias\" : \"shilladfsCN\", \"inChannelId\" : \"CHNL0000000003\", \"domainId\" : \"NODE0000000002\", \"customAlias\" : \"HK\", \"withHelper\" : \"Y\"}}";
+			console.log(fullUrl);
+			location.href = fullUrl;
+		}
+		else {
+
+			$.ajax({
+				url: contextPath + "/shilladfscustomercenter/shillaChatTalkEncodeCustomerId",
+		    	type: 'POST',
+		    	data : {
+		    		customerId : $("#talkPopupCustomerId").val()
+				},
+		    	error: function(){
+					console.log("상담톡 서버와의 통신에 장애가 발생하였습니다.");
+		    	},
+		    	success: function(result) {
+		    		//console.log("!!!!!!!    talkPopup talkPopupCustomerId   ======    "   + $("#talkPopupCustomerId").val());
+		    		encodeCustomerId = result.encodeCustomerId;
+		    		fullUrl = "shilladfscn://talkPopup?{\"url\" : \"" + $("#talkPopupUrl").val() + "\", \"param\" : {\"domainAlias\" : \"shilladfsCN\", \"inChannelId\" : \"CHNL0000000003\", \"customerId\" : \"" + encodeCustomerId + "\", \"withHelper\" : \"Y\"}}";
+		    		console.log(fullUrl);
+		    		location.href = fullUrl;
+		    	}
+			});
+
+		}
+	}else{
+		alert("您需要安装该应用程序的新版本。请在应用程序商城更新新罗免税店的应用程序。");
+	}
+}
+
+function talkNewMsg (){
+	var fullUrl = "";
+	// KR 안드로이드 모바일 상담톡 앱 URL
+	fullUrl = "shilladfscn://counselTalk/newMessage";
+	console.log(fullUrl);
+	location.href = fullUrl;
+}
+
+function shillaChatTalkPop() {
+	//$('#layer_shillachattalk').html(""); // 초기화
+
+	$.ajax({
+		url: contextPath + "/shilladfscustomercenter/shillaChatTalkUrl",
+    	type: 'GET',
+    	timeout: 5000,
+    	error: function(){
+			console.log("상담톡 서버와의 통신에 장애가 발생하였습니다.");
+    	},
+    	success: function(data) {
+    		//$('#layer_shillachattalk').html(data);
+
+    		//popOpen($("#layer_shillachattalk"));
+    		// 상담톡 호출
+    		$("body").append(data);
+    		document.shillaChatTalkForm.inputUrl.value = location.href;
+    		$("#shillaChatTalkForm").submit();
+    	}
+	});
+}
+
+function shillaChatTalkNew() {
+	$.ajax({
+		url: option.shillaChatWebServer,
+		dataType : "jsonp",
+		jsonp : "cb",
+		data	:  {
+			cmd : '{"command":"TalkBadge","domainAlias":"shilladfsCN","customerId":\"' + option.customerUid + '\"}'
+		},
+    	error: function(){
+    		$('#talkImg').hide();
+			console.log("상담톡 서버와의 통신에 장애가 발생하였습니다.");
+    	},
+    	success: function(data) {
+    		if((data == null || data == "") || isApp) {
+    			$('#talkImg').hide();
+    		} else {
+	    		console.log('notReadMessage : ' + data.data.notReadMessage);
+	    		console.log('inProgressTalkCount : ' + data.data.inProgressTalkCount);
+	    		console.log('errorCode : ' + data.errorCode);
+
+	    		$('#talkImg').show();
+
+	    		if(data.errorCode == 0) {
+	    			if(data.data.inProgressTalkCount != 0) {
+	    				$('#talk').addClass("on");
+	    			} else {
+	    				$('#talk').removeClass("on");
+	    			}
+	    		} else {
+	    			$('#talk').removeClass("on");
+	    		}
+    		}
+    	}
+	});
+}
+
+/*
+ * 상품상세 확대 기능
+ * 작성일: 2018.04.03
+ */
+
+var zoomCommon = (function(){
+	var ua = window.navigator.userAgent.toLowerCase(),
+		ios = /iphone|ipod|ipad/.test(ua),
+		safari = /safari/.test(ua),
+		samsung = /samsungbrowser/.test(ua),
+		script_url = '/estore/_ui/mobile/common/shilladfshome/cn/js/iscroll.shilladfs.zoom.js';
+
+	return {
+		beforeInit: function() {
+			return $('.pinchZoomInOutArea img, .guide_notice .cont img').length;
+		},
+		addScript: function() {
+			$.getScript(script_url)
+			.done(function(e){
+				//$('.tit_area:eq(1) h3').append(' 01 gs ');
+				if (ios && ua.search('crios') < 0) {
+					if (!safari) {
+						zoomInOutDetail.init();
+					};
+				} else {
+					if (!samsung) {
+						zoomInOutDetail.init();
+					};
+				};
+			})
+			.fail(function(e){
+				//$('.tit_area:eq(1) h3').append(' 01 gsfail ');
+				console.log('리소스 로드 실패');
+			});
+		}
+	}
+})();
+
+var zoomInOutDetail = (function(){
+	var detailZoom = [],
+		root = '.pinchZoomInOutArea',
+		notice = '.guide_notice .cont',
+		tgt = '.detail_info_img',
+		tgtH,
+		tgtText,
+		setting = {
+			zoom: true,
+			scrollX: true,
+			scrollY: true,
+			eventPassthrough: false,
+			preventDefault: false,
+			lockDirection: true,
+			bounce: false,
+			momentum: false,
+			zoomMax: 4
+		}
+
+	function addEvent() {
+		$.each($(root), function(i, el) {
+			if ($(el).find('img').length > 0) {
+				$(el).attr('id', 'zoomable'+i);
+				detailZoom[i] = 'zoomable'+i;
+				detailZoom[i] = new SDFS_iscroll('#zoomable'+i, setting);
+			};
+		});
+	};
+
+	function setUI() {
+		tgtText = $(tgt).find('p.text');
+		if (tgtText.length > 0) {
+			tgtText.remove();
+		};
+		$(notice).wrap('<div class="pinchZoomInOutArea"></div');
+		$(root).find('a').css({'word-wrap':'break-word'});
+		$(root).find('img').css("cssText", "width:100% !important; height:auto;");
+
+		addEvent();
+	};
+
+	return {
+		init: function() {
+			setUI();
+		}
+	}
+})();
+
+/* 오프라인점 방문 유도 배너 */
+$(document).ready(function() {
+	if($(".new_banner_type2 ul li").length == 0){
+		$(".new_banner_type2").hide();
+	}
+});
+
+
+/* 2019.01.09 오늘의 특가 추가 - 픽스다인 */
+$( document ).ready(function() {
+
+	var setViewTime = function (){
+		var getYear = $("#daysPrice #year").val();
+		var getMonth = $("#daysPrice #month").val();
+		var getDay = $("#daysPrice #day").val();
+
+		function addzero(n){
+			return n < 10 ? "0" + n : n;
+		}
+
+		if(getYear.trim() != "" && getMonth.trim() != "" && getDay.trim() != ""){
+
+			var now = new Date();
+			var dday = new Date(getYear, getMonth - 1, getDay);
+
+			var daysRound = Math.floor((dday - now) / 1000 / 60 / 60 / 24);
+			var hoursRound = Math.floor((dday - now) / 1000 / 60 / 60 - (24 * daysRound));
+			var minutesRound = Math.floor((dday - now) / 1000 /60 - (24 * 60 * daysRound) - (60 * hoursRound));
+			var secondsRound = Math.round((dday - now) / 1000 - (24 * 60 * 60 * daysRound) - (60 * 60 * hoursRound) - (60 * minutesRound));
+
+			$('#dateView .countTimeHour').text(addzero(hoursRound));
+			$('#dateView .countTimeMinut').text(addzero(minutesRound));
+			$('#dateView .countTimeSecond').text(addzero(secondsRound));
+		}
+	}
+
+	if ($('#dateView').length > 0) {
+		setInterval(setViewTime, 1000);
+	}
+
+	$('.slideManual.todaysPirce_list_inner').slick('slickSetOption', {
+		slidesToScroll : 2,
+		slidesToShow : 2
+	}, true);
+});
+/* //2019.01.09 오늘의 특가 추가 - 픽스다인 */
+
+/* 2019-06-18 M프로젝트 2차 개선 - 픽스다인 */
+$(function(){
+
+	function ADF( target ) {
+
+		var ADCHECK = document.querySelectorAll( target );
+		if ( ADCHECK == undefined || ADCHECK == null || ADCHECK.length == 0 ) return false;
+
+
+		var obj = {
+			wrap : $( target ),
+			activeClass : 'active',
+			interval : null,
+			intervalSpeed : 5000
+		};
+
+		this.ADFTimeStart = function() {
+
+			var _ = this;
+
+			_.ADFTimeStop();
+
+			obj.interval = setTimeout(function(){
+
+				if (!obj.wrap.parent().hasClass( obj.activeClass )) {
+
+					obj.wrap.parent().addClass( obj.activeClass );
+
+				}
+
+				_.ADFTimeStop();
+
+			}, obj.intervalSpeed);
+
+		};
+
+		this.ADFTimeStop = function(){
+
+			clearTimeout( obj.interval );
+			obj.interval = null;
+
+		};
+
+		this.ADFInit = function(){
+
+			var _ = this;
+
+			_.ADFTimeStart();
+
+		};
+
+		this.ADFInit();
+
+		return this;
+
+	}
+
+	new ADF( '.ad_badge > a' )
+})
+/* // 2019-06-18 M프로젝트 2차 개선 - 픽스다인 */
+
+/* 2020-03-10 통합검색 서비스 개선 (기획전 배너 롤링 추가) - 픽스다인 */
+$(function(){
+	var searchBanner = (function( target ){
+        var banner = $(target);
+
+        if (banner.length > 0) {
+			if (banner.find('.search_brand_item').length > 0) {
+				banner.slick({
+					autoplay : true,
+					dots: false,
+					arrows : false,
+					cssEase: 'linear',
+					slidesToShow: 1,
+				})
+			}
+		}
+
+	})( '.search_brand_banner' );
+});
+
+/* 2020-06 CS */
+// CS
+function goShillaCSPage() {
+	var vplatformUrl = $("#vplatformUrl").val() + '/cs/kr/zh/pub/home';
+	if (isApp) {
+		location.href = 'shilladfs://goOtherService?from=ec&to=cs&url=' + vplatformUrl;
+	}
+	else {
+		location.href = vplatformUrl;
+	}
+}
+
+// CS Emergency
+function goShillaCSEmergencyPage() {
+	var vplatformUrl = $("#vplatformUrl").val() + '/cs/kr/zh/pub/emergency/home';
+	if (isApp) {
+		location.href = 'shilladfs://goOtherService?from=ec&to=cs&url=' + vplatformUrl;
+	}
+	else {
+		location.href = vplatformUrl;
+	}
+}
+
+// CS Notice
+function goShillaCSNoticePage() {
+	var vplatformUrl = $("#vplatformUrl").val() + '/cs/kr/zh/pub/notice/home';
+	if (isApp) {
+		location.href = 'shilladfs://goOtherService?from=ec&to=cs&url=' + vplatformUrl;
+	}
+	else {
+		location.href = vplatformUrl;
+	}
+}
+
+// 2021-09-15 : EC 글로벌몰 서비스 이동팝업
+(function SDF_service(){
+
+    $(document).on('click.sdfService', '.sdf_service_toggle', function( event ){
+        event.preventDefault();
+        var toggle = $(this);
+        var popup = toggle.closest('.sdf_service').find(toggle.attr('href'));
+        popup.stop(true).slideToggle(300);
+        toggle.add( popup ).toggleClass('on');
+
+        $('body').on('click.sdfService', function( event ){
+            if ( popup.hasClass('on') && $(event.target).closest('.sdf_service').length === 0) {
+                event.preventDefault();
+				popup.stop(true).slideToggle(300);
+                toggle.add( popup ).removeClass('on');
+                $('body').off('click.sdfService');
+            }
+        })
+    });
+
+}());
+
+/* 2021-11-22 : 로레알 가상메이크업 도입 */
+$(function(){
+    var arToast = $('#prd_addon .ar_toast');
+    arToast.length > 0 && arToast.fadeIn(500).delay(3000).fadeOut(500);
+})
+
+// 2022년 이후 선언문은 아래 형식으로 적용 필요
+// 공통
+var SUI = SUI || {}; /* global namespace */
+SUI.Utils = {
+    fadeIn: function(t, speed) {
+        speed = !speed ? 'fast' : speed;
+        return $(t).fadeIn(speed);
+    },
+
+    fadeOut : function (t, speed) {
+        speed = !speed ? 'fast' : speed;
+        return $(t).fadeOut(speed);
+    },
+
+    overlap : function(target, handler, fn){
+        target.handler && target.removeEventListener(handler, target.handler);
+        target.handler = fn;
+        target.addEventListener(handler, target.handler);
+    }
+}
+
+// 2022-12-15 : 공통 Tab
+SUI.Tab = {
+    init () {
+        var tab = document.querySelectorAll('[data-tab]');
+        if ( tab.length < 1 ) return;
+
+        tab.forEach(data => {
+            var a = data.querySelectorAll('a:not([data-tab-landing])');
+            a.forEach((el, idx) => {
+                var set = {
+                    a : a,
+                    data : data,
+                    el : el,
+                    idx : idx
+                }
+               this._eventHandler(set);
+            });
+        });
+    },
+
+    _eventHandler (set) {
+        if (set.el.handler) {
+            set.el.removeEventListener('click' , set.el.handler);
+        }
+        set.el.handler = (e) => {
+            var value = set.data.dataset.tab;
+
+            if (value !== '') {
+                var content = document.querySelectorAll('[data-tab-content=' + value + '] > div');
+                content.forEach(function(cont, i) {
+                    cont.style.display = 'none';
+                    cont.classList.remove('on');
+                });
+
+                content[set.idx].classList.add('on');
+                content[set.idx].style.display = 'block';
+            }
+
+            for (var i = 0; i < set.a.length;i++ ) {
+                set.a[i].parentElement.classList.remove('on');
+            }
+            set.el.parentElement.classList.add('on');
+        }
+        set.el.addEventListener('click' , set.el.handler);
+    }
+}
+
+// 2022-12-15 : 멤버십 안내
+SUI.OnceExecute = {
+    init: function() {
+        this.caller = document.querySelectorAll('[data-execute]');
+        if ( this.caller.length < 1 ) return false;
+
+        this.caller.forEach(function(el){
+            var button = el.querySelector('[data-execute-button]');
+            SUI.Utils.overlap(el, 'click', function(e) {
+                e.preventDefault();
+                try {
+                    var view = el.querySelector('[data-execute-view]');
+                    SUI.Utils.fadeOut(button);
+                    SUI.Utils.fadeIn(view, 500);
+                } catch (e) {
+                    // console.log(e);
+                }
+            }, false);
+        })
+
+    },
+}
+
+// 공통 실행
+$(document).ready(function() {
+	SUI.Tab.init();
+	// SUI.OnceExecute.init(); // 2022-12-15 : 멤버십 안내
+});
